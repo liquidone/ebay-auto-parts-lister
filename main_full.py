@@ -14,11 +14,12 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from modules.image_processor import ImageProcessor
+from modules.image_processor_simple import ImageProcessor
 from modules.part_identifier import PartIdentifier
 from modules.database import Database
 from modules.ebay_api import eBayAPI
 from modules.ebay_pricing import eBayPricing
+from modules.ebay_compliance import eBayComplianceHandler
 
 app = FastAPI(title="eBay Auto Parts Lister", version="1.0.0")
 
@@ -28,6 +29,7 @@ part_identifier = PartIdentifier()
 database = Database()
 ebay_api = eBayAPI()
 ebay_pricing = eBayPricing()
+ebay_compliance = eBayComplianceHandler()
 
 # Create necessary directories
 os.makedirs("uploads", exist_ok=True)
@@ -798,6 +800,36 @@ async def create_ebay_listing(request: dict):
         return {
             "error": f"eBay listing creation error: {str(e)}"
         }
+
+# eBay Marketplace Account Deletion/Closure Notification Endpoints
+# Required for eBay API compliance
+
+@app.post("/ebay/account-deletion-notification")
+async def ebay_account_deletion_notification(notification_data: dict):
+    """Handle eBay marketplace account deletion/closure notifications"""
+    try:
+        result = await ebay_compliance.handle_account_deletion_notification(notification_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ebay/verification-challenge")
+async def ebay_verification_challenge(challenge_data: dict):
+    """Handle eBay verification challenges for the notification endpoint"""
+    try:
+        result = await ebay_compliance.handle_verification_challenge(challenge_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ebay/compliance-status")
+async def ebay_compliance_status():
+    """Get current eBay compliance status and information"""
+    try:
+        status = ebay_compliance.get_compliance_status()
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
