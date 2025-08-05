@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from modules.image_processor_simple import ImageProcessor
+from modules.image_processor import ImageProcessor
 from modules.part_identifier import PartIdentifier
 from modules.database import Database
 from modules.ebay_api import eBayAPI
