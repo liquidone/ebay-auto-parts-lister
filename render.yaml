@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: ebay-auto-parts-lister
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn main_full:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: EBAY_APP_ID
+        sync: false
+      - key: EBAY_DEV_ID
+        sync: false
+      - key: EBAY_CERT_ID
+        sync: false
+      - key: EBAY_USER_TOKEN
+        sync: false
+      - key: EBAY_SANDBOX
+        value: true
+      - key: EBAY_ENVIRONMENT
+        value: sandbox
