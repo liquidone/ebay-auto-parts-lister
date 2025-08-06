@@ -70,27 +70,25 @@ class WebhookHandler(BaseHTTPRequestHandler):
             data = json.loads(payload.decode('utf-8'))
             
             # Check if this is a push to main branch
-            if (data.get('ref') == 'refs/heads/main' and 
-                data.get('repository', {}).get('name') == 'ebay-auto-parts-lister'):
+            event = data.get('event')
+            ref = data.get('ref')
+            if event == 'push' and ref == 'refs/heads/main':
+                logging.info("Push to main branch detected - triggering auto-deployment")
                 
-                logging.info(f"Push to main detected from {data.get('pusher', {}).get('name', 'unknown')}")
-                
-                # Trigger deployment
-                result = subprocess.run([
-                    'bash', DEPLOY_SCRIPT, 'webhook'
-                ], capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    logging.info("Auto-deployment completed successfully")
-                    response = {"status": "success", "message": "Deployment triggered"}
-                else:
-                    logging.error(f"Auto-deployment failed: {result.stderr}")
-                    response = {"status": "error", "message": "Deployment failed"}
-                
+                # Send immediate response to GitHub so git push doesn't hang
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps(response).encode())
+                self.wfile.write(json.dumps({"status": "accepted", "message": "Deployment started"}).encode())
+                
+                # Run auto-deployment script in background
+                try:
+                    subprocess.Popen([
+                        'bash', DEPLOY_SCRIPT, 'webhook'
+                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    logging.info("Auto-deployment script started in background")
+                except Exception as e:
+                    logging.error(f"Failed to start deployment: {e}")
             else:
                 logging.info("Webhook received but not for main branch")
                 self.send_response(200)
