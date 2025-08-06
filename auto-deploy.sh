@@ -40,24 +40,11 @@ deploy_changes() {
             log_message "Ensuring Playwright browsers are installed for ebayapp user..."
             sudo -u ebayapp /opt/ebay-auto-parts-lister/venv/bin/playwright install chromium --with-deps
             
-            # Restart the service (non-blocking)
+            # Restart the service with timeout
             log_message "Restarting service..."
-            systemctl restart "$SERVICE_NAME" &
-            RESTART_PID=$!
-            
-            # Wait up to 10 seconds for restart to complete
-            for i in {1..10}; do
-                if ! kill -0 $RESTART_PID 2>/dev/null; then
-                    break
-                fi
-                sleep 1
-            done
-            
-            # Kill restart if it's still hanging
-            if kill -0 $RESTART_PID 2>/dev/null; then
-                log_message "⚠️ Service restart taking too long, continuing..."
-                kill $RESTART_PID 2>/dev/null
-            fi
+            timeout 15 systemctl restart "$SERVICE_NAME" || {
+                log_message "⚠️ Service restart timed out after 15 seconds, continuing..."
+            }
             
             # Wait a moment for service to start
             sleep 3
