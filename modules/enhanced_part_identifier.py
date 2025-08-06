@@ -135,7 +135,7 @@ class EnhancedPartIdentifier:
     
     async def _phase1_standard_api(self, image_path: str) -> IdentificationResult:
         """Phase 1: Standard Gemini API identification"""
-        result = await self.base_identifier.identify_part_from_image(image_path)
+        result = await self.base_identifier.identify_part_from_multiple_images([image_path])
         
         # Analyze result quality
         issues = self._analyze_result_quality(result)
@@ -159,10 +159,8 @@ class EnhancedPartIdentifier:
         enhanced_prompt = self._create_enhanced_prompt(previous_result.issues)
         
         # Use enhanced prompt with base identifier
-        result = await self.base_identifier.identify_part_from_image(
-            image_path, 
-            custom_prompt=enhanced_prompt
-        )
+        # Note: Base identifier doesn't support custom prompts, using standard method
+        result = await self.base_identifier.identify_part_from_multiple_images([image_path])
         
         issues = self._analyze_result_quality(result)
         confidence = self._calculate_confidence_score(result, issues)
