@@ -24,6 +24,13 @@ deploy_changes() {
     # Get current commit hash
     OLD_COMMIT=$(git rev-parse HEAD)
     
+    # Handle any local changes by stashing them
+    log_message "Checking for local changes..."
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        log_message "Local changes detected, stashing them..."
+        git stash push -m "Auto-stash before deployment $(date)"
+    fi
+    
     # Pull latest changes
     log_message "Pulling latest changes from Git..."
     if git pull origin main; then
