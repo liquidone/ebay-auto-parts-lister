@@ -119,10 +119,13 @@ class EnhancedPartIdentifier:
             self.logger.error(f"Phase 3 failed: {e}")
         
         # Phase 4: Browser fallback (experimental)
+        self.logger.info(f"Browser fallback conditions: enabled={is_browser_fallback_enabled()}, browser_loaded={self.browser_fallback is not None}, can_use={self.usage_tracker.can_use_browser_fallback()}")
+        
         if (is_browser_fallback_enabled() and 
             self.browser_fallback and 
             self.usage_tracker.can_use_browser_fallback()):
             
+            self.logger.info("All browser fallback conditions met - attempting browser fallback")
             try:
                 browser_result = await self._phase4_browser_fallback(image_path)
                 self.usage_tracker.record_browser_usage()
@@ -130,6 +133,8 @@ class EnhancedPartIdentifier:
                 
             except Exception as e:
                 self.logger.error(f"Phase 4 browser fallback failed: {e}")
+        else:
+            self.logger.info("Browser fallback conditions not met - skipping Phase 4")
         
         # Return best available result
         return api_result
