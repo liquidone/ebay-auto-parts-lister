@@ -150,7 +150,8 @@ class EnhancedPartIdentifier:
                 confidence_score=0.0,
                 method_used="Phase 1 API failed",
                 issues=["API_FAILURE"],
-                needs_fallback_flag=True
+                raw_response=result,
+                timestamp=datetime.now()
             )
         
         # Analyze result quality
