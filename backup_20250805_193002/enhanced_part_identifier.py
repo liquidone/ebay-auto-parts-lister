@@ -85,7 +85,6 @@ class EnhancedPartIdentifier:
             api_result = await self._phase1_standard_api(image_path)
             
             # Check if we need fallback
-            self.logger.info(f"Phase 1 needs_fallback: {api_result.needs_fallback()}, confidence: {api_result.confidence_score}")
             if not api_result.needs_fallback() and not user_triggered_fallback:
                 return api_result
             
@@ -118,46 +117,25 @@ class EnhancedPartIdentifier:
         except Exception as e:
             self.logger.error(f"Phase 3 failed: {e}")
         
-        # Phase 4: Browser Fallback (if enabled and available)
-        self.logger.info(f"Browser fallback conditions: enabled={is_browser_fallback_enabled()}, browser_loaded={self.browser_fallback is not None}, can_use={self.usage_tracker.can_use_browser_fallback()}")
+        # Phase 4: Browser fallback (experimental)
         if (is_browser_fallback_enabled() and 
             self.browser_fallback and 
             self.usage_tracker.can_use_browser_fallback()):
+            
             try:
                 browser_result = await self._phase4_browser_fallback(image_path)
                 self.usage_tracker.record_browser_usage()
                 return browser_result
+                
             except Exception as e:
                 self.logger.error(f"Phase 4 browser fallback failed: {e}")
-                # Still return the browser result even if it failed - it contains useful info
-                browser_result = await self._phase4_browser_fallback(image_path)
-                return browser_result
-        else:
-            self.logger.info("Browser fallback conditions not met - skipping Phase 4")
         
         # Return best available result
         return api_result
     
     async def _phase1_standard_api(self, image_path: str) -> IdentificationResult:
         """Phase 1: Standard Gemini API identification"""
-        result = await self.base_identifier.identify_part_from_multiple_images([image_path])
-        
-        # Check if result indicates an API failure
-        if (result.get("error") or 
-            "AI analysis failed" in result.get("description", "") or
-            "API key not valid" in result.get("description", "") or
-            result.get("name") == "AI Analysis Failed"):
-            # API failed - return failure result to trigger next phase
-            return IdentificationResult(
-                part_name="API Failed",
-                part_number=None,
-                description=f"Phase 1 API failed: {result.get('description', 'Unknown error')}",
-                confidence_score=0.0,
-                method_used="Phase 1 API failed",
-                issues=["API_FAILURE"],
-                raw_response=result,
-                timestamp=datetime.now()
-            )
+        result = await self.base_identifier.identify_part_from_image(image_path)
         
         # Analyze result quality
         issues = self._analyze_result_quality(result)
@@ -181,8 +159,10 @@ class EnhancedPartIdentifier:
         enhanced_prompt = self._create_enhanced_prompt(previous_result.issues)
         
         # Use enhanced prompt with base identifier
-        # Note: Base identifier doesn't support custom prompts, using standard method
-        result = await self.base_identifier.identify_part_from_multiple_images([image_path])
+        result = await self.base_identifier.identify_part_from_image(
+            image_path, 
+            custom_prompt=enhanced_prompt
+        )
         
         issues = self._analyze_result_quality(result)
         confidence = self._calculate_confidence_score(result, issues)
