@@ -1,4 +1,5 @@
 # eBay Auto Parts Lister
+<!-- Webhook test - auto-deployment system active -->
 
 An automated system for processing auto part images and creating optimized eBay listings using AI vision and image processing.
 
