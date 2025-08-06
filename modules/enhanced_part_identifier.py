@@ -85,6 +85,7 @@ class EnhancedPartIdentifier:
             api_result = await self._phase1_standard_api(image_path)
             
             # Check if we need fallback
+            self.logger.info(f"Phase 1 needs_fallback: {api_result.needs_fallback()}, confidence: {api_result.confidence_score}")
             if not api_result.needs_fallback() and not user_triggered_fallback:
                 return api_result
             
