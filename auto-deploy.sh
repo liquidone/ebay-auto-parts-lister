@@ -36,13 +36,28 @@ deploy_changes() {
             log_message "Installing Python dependencies..."
             /opt/ebay-auto-parts-lister/venv/bin/pip install -r requirements.txt
             
-            # Install Playwright browsers if needed
-            log_message "Ensuring Playwright browsers are installed..."
-            /opt/ebay-auto-parts-lister/venv/bin/playwright install chromium --with-deps
+            # Ensure Playwright browsers are installed for the service user
+            log_message "Ensuring Playwright browsers are installed for ebayapp user..."
+            sudo -u ebayapp /opt/ebay-auto-parts-lister/venv/bin/playwright install chromium --with-deps
             
-            # Restart the service
+            # Restart the service (non-blocking)
             log_message "Restarting service..."
-            systemctl restart "$SERVICE_NAME"
+            systemctl restart "$SERVICE_NAME" &
+            RESTART_PID=$!
+            
+            # Wait up to 10 seconds for restart to complete
+            for i in {1..10}; do
+                if ! kill -0 $RESTART_PID 2>/dev/null; then
+                    break
+                fi
+                sleep 1
+            done
+            
+            # Kill restart if it's still hanging
+            if kill -0 $RESTART_PID 2>/dev/null; then
+                log_message "⚠️ Service restart taking too long, continuing..."
+                kill $RESTART_PID 2>/dev/null
+            fi
             
             # Wait a moment for service to start
             sleep 3
