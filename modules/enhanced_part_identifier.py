@@ -137,6 +137,22 @@ class EnhancedPartIdentifier:
         """Phase 1: Standard Gemini API identification"""
         result = await self.base_identifier.identify_part_from_multiple_images([image_path])
         
+        # Check if result indicates an API failure
+        if (result.get("error") or 
+            "AI analysis failed" in result.get("description", "") or
+            "API key not valid" in result.get("description", "") or
+            result.get("name") == "AI Analysis Failed"):
+            # API failed - return failure result to trigger next phase
+            return IdentificationResult(
+                part_name="API Failed",
+                part_number=None,
+                description=f"Phase 1 API failed: {result.get('description', 'Unknown error')}",
+                confidence_score=0.0,
+                method_used="Phase 1 API failed",
+                issues=["API_FAILURE"],
+                needs_fallback_flag=True
+            )
+        
         # Analyze result quality
         issues = self._analyze_result_quality(result)
         confidence = self._calculate_confidence_score(result, issues)
