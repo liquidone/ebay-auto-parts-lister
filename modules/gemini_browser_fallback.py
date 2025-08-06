@@ -33,8 +33,8 @@ class GeminiBrowserFallback:
         if not PLAYWRIGHT_AVAILABLE:
             raise ImportError("Playwright not installed. Run: pip install playwright")
         
-        # Configuration
-        self.gemini_url = "https://gemini.google.com"
+        # Configuration - Updated for 2025
+        self.gemini_url = "https://aistudio.google.com/app/prompts/new"
         self.timeout = 30000  # 30 seconds
         self.max_retries = 3
         
@@ -188,22 +188,25 @@ class GeminiBrowserFallback:
             
             file_input = None
             for selector in file_inputs:
-                file_input = await self.page.query_selector(selector)
-                if file_input:
-                    break
-            
-            if not file_input:
-                # Try to find upload button and click it
+                # Try current Gemini UI selectors (updated for 2025)
                 upload_buttons = [
-                    'text="Upload"',
-                    'text="Attach"',
-                    '[aria-label*="upload"]',
-                    '[title*="upload"]'
+                    'input[type="file"]',  # Direct file input
+                    '[data-testid="upload-button"]',  # Gemini's upload button
+                    '[aria-label="Add image"]',  # New Gemini UI
+                    '[aria-label="Upload image"]',  # Alternative label
+                    'button[aria-label*="image"]',  # Any image button
+                    'button[aria-label*="upload"]',  # Any upload button
+                    '.upload-area',  # Upload drop zone
+                    '[role="button"][title*="image"]',  # Image buttons
+                    '[data-upload]',  # Data attribute
+                    '.file-upload-button'  # Class name
                 ]
                 
                 for selector in upload_buttons:
                     button = await self.page.query_selector(selector)
                     if button:
+                        file_input = button
+                        break
                         await button.click()
                         await self.page.wait_for_timeout(1000)
                         file_input = await self.page.query_selector('input[type="file"]')
