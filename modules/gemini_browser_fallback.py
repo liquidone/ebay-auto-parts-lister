@@ -325,6 +325,36 @@ class GeminiBrowserFallback:
                 await self.page.wait_for_timeout(2000)
                 self.logger.info("Image uploaded successfully")
             else:
+                # Debug: capture what's actually on the page
+                self.logger.error("No file upload mechanism found. Debugging page content...")
+                
+                # Get page title and URL for context
+                page_title = await self.page.title()
+                page_url = self.page.url
+                self.logger.error(f"Page title: {page_title}")
+                self.logger.error(f"Page URL: {page_url}")
+                
+                # Get all buttons on the page
+                buttons = await self.page.query_selector_all('button')
+                self.logger.error(f"Found {len(buttons)} buttons on page")
+                
+                # Get all inputs on the page
+                inputs = await self.page.query_selector_all('input')
+                self.logger.error(f"Found {len(inputs)} inputs on page")
+                
+                # Get all clickable elements
+                clickable = await self.page.query_selector_all('[role="button"], button, input, [onclick]')
+                self.logger.error(f"Found {len(clickable)} clickable elements on page")
+                
+                # Sample some button text for debugging
+                for i, button in enumerate(buttons[:5]):
+                    try:
+                        text = await button.inner_text()
+                        aria_label = await button.get_attribute('aria-label') or ''
+                        self.logger.error(f"Button {i+1}: text='{text[:30]}' aria-label='{aria_label[:30]}'")
+                    except:
+                        continue
+                
                 raise Exception("Could not find file upload mechanism")
                 
         except Exception as e:
