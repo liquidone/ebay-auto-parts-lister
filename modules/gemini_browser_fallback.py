@@ -201,40 +201,123 @@ class GeminiBrowserFallback:
         self.logger.info(f"Uploading image: {image_path}")
         
         try:
-            # Look for file upload button/input
-            file_inputs = [
-                'input[type="file"]',
-                '[data-testid="file-upload"]',
-                '.file-upload',
-                'input[accept*="image"]'
+            # Updated selectors for Gemini AI Studio 2025 interface
+            upload_strategies = [
+                # Strategy 1: Look for attachment/upload buttons first
+                {
+                    'buttons': [
+                        'button[aria-label*="Attach"]',
+                        'button[aria-label*="Upload"]', 
+                        'button[title*="Attach"]',
+                        'button[title*="Upload"]',
+                        '[data-testid*="attach"]',
+                        '[data-testid*="upload"]',
+                        'button:has-text("📎")',  # Paperclip emoji
+                        'button:has-text("+")',     # Plus button
+                        '.attachment-button',
+                        '.upload-button'
+                    ]
+                },
+                # Strategy 2: Look for file inputs directly
+                {
+                    'inputs': [
+                        'input[type="file"]',
+                        'input[accept*="image"]',
+                        'input[accept*="*"]'
+                    ]
+                },
+                # Strategy 3: Look for drag-drop areas
+                {
+                    'areas': [
+                        '[data-testid*="drop"]',
+                        '.drop-zone',
+                        '.file-drop',
+                        '[aria-label*="drop"]'
+                    ]
+                }
             ]
             
             file_input = None
-            for selector in file_inputs:
-                # Try current Gemini UI selectors (updated for 2025)
-                upload_buttons = [
-                    'input[type="file"]',  # Direct file input
-                    '[data-testid="upload-button"]',  # Gemini's upload button
-                    '[aria-label="Add image"]',  # New Gemini UI
-                    '[aria-label="Upload image"]',  # Alternative label
-                    'button[aria-label*="image"]',  # Any image button
-                    'button[aria-label*="upload"]',  # Any upload button
-                    '.upload-area',  # Upload drop zone
-                    '[role="button"][title*="image"]',  # Image buttons
-                    '[data-upload]',  # Data attribute
-                    '.file-upload-button'  # Class name
-                ]
+            
+            # Try each strategy
+            for strategy in upload_strategies:
+                if file_input:
+                    break
+                    
+                # Try buttons first
+                if 'buttons' in strategy:
+                    for button_selector in strategy['buttons']:
+                        try:
+                            button = await self.page.query_selector(button_selector)
+                            if button and await button.is_visible():
+                                self.logger.info(f"Found upload button: {button_selector}")
+                                await button.click()
+                                await self.page.wait_for_timeout(1500)
+                                
+                                # Look for file input after clicking
+                                file_input = await self.page.query_selector('input[type="file"]')
+                                if file_input:
+                                    self.logger.info("File input appeared after button click")
+                                    break
+                        except Exception as e:
+                            self.logger.debug(f"Button {button_selector} failed: {e}")
+                            continue
                 
-                for selector in upload_buttons:
-                    button = await self.page.query_selector(selector)
-                    if button:
-                        file_input = button
-                        break
-                        await button.click()
-                        await self.page.wait_for_timeout(1000)
-                        file_input = await self.page.query_selector('input[type="file"]')
-                        if file_input:
-                            break
+                # Try direct file inputs
+                if 'inputs' in strategy and not file_input:
+                    for input_selector in strategy['inputs']:
+                        try:
+                            file_input = await self.page.query_selector(input_selector)
+                            if file_input:
+                                self.logger.info(f"Found direct file input: {input_selector}")
+                                break
+                        except Exception as e:
+                            self.logger.debug(f"Input {input_selector} failed: {e}")
+                            continue
+                
+                # Try drop areas
+                if 'areas' in strategy and not file_input:
+                    for area_selector in strategy['areas']:
+                        try:
+                            area = await self.page.query_selector(area_selector)
+                            if area and await area.is_visible():
+                                self.logger.info(f"Found drop area: {area_selector}")
+                                await area.click()
+                                await self.page.wait_for_timeout(1500)
+                                
+                                # Look for file input after clicking
+                                file_input = await self.page.query_selector('input[type="file"]')
+                                if file_input:
+                                    self.logger.info("File input appeared after area click")
+                                    break
+                        except Exception as e:
+                            self.logger.debug(f"Area {area_selector} failed: {e}")
+                            continue
+            
+            # Final fallback: scan for any clickable elements with upload-related text
+            if not file_input:
+                self.logger.info("Trying fallback text-based search...")
+                clickable_elements = await self.page.query_selector_all('button, [role="button"], div[onclick], span[onclick]')
+                
+                for element in clickable_elements[:20]:  # Limit to first 20 to avoid timeout
+                    try:
+                        text = await element.inner_text()
+                        aria_label = await element.get_attribute('aria-label') or ''
+                        title = await element.get_attribute('title') or ''
+                        
+                        combined_text = f"{text} {aria_label} {title}".lower()
+                        
+                        if any(keyword in combined_text for keyword in ['attach', 'upload', 'file', 'image', '+', '📎']):
+                            self.logger.info(f"Trying element with text: {combined_text[:50]}")
+                            await element.click()
+                            await self.page.wait_for_timeout(1000)
+                            
+                            file_input = await self.page.query_selector('input[type="file"]')
+                            if file_input:
+                                self.logger.info("File input found after fallback click")
+                                break
+                    except Exception as e:
+                        continue
             
             if file_input:
                 # Upload the file
