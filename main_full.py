@@ -16,6 +16,8 @@ load_dotenv()
 
 from modules.image_processor_simple import ImageProcessor
 from modules.part_identifier import PartIdentifier
+from modules.enhanced_part_identifier import EnhancedPartIdentifier
+from modules.feature_flags import feature_flags, is_enhanced_ui_enabled
 from modules.database import Database
 from modules.ebay_api import eBayAPI
 from modules.ebay_pricing import eBayPricing
@@ -26,6 +28,7 @@ app = FastAPI(title="eBay Auto Parts Lister", version="1.0.0")
 # Initialize modules
 image_processor = ImageProcessor()
 part_identifier = PartIdentifier()
+enhanced_part_identifier = EnhancedPartIdentifier()
 database = Database()
 ebay_api = eBayAPI()
 ebay_pricing = eBayPricing()
@@ -634,10 +637,18 @@ async def process_images(files: list[UploadFile] = File(...)):
     
     # Analyze all images together to identify the single auto part
     try:
-        # Use the first (main) image for part identification, but pass all images for context
+        # Use enhanced identification system
         main_image_path = uploaded_files[0]
-        part_info = await part_identifier.identify_part_from_multiple_images(uploaded_files)
-        print(f"Part identified from {len(uploaded_files)} images: {part_info}")
+        
+        # Check if enhanced identification is enabled
+        if is_enhanced_ui_enabled():
+            identification_result = await enhanced_part_identifier.identify_part(main_image_path)
+            part_info = identification_result.to_dict()
+            print(f"Enhanced identification result: {identification_result.method_used} - Confidence: {identification_result.confidence_score:.2f}")
+        else:
+            # Fallback to original method
+            part_info = await part_identifier.identify_part_from_multiple_images(uploaded_files)
+            print(f"Standard identification from {len(uploaded_files)} images: {part_info}")
         
         # Get competitive pricing from eBay sold listings
         part_number = part_info.get("part_numbers", part_info.get("part_number", ""))
@@ -800,6 +811,87 @@ async def create_ebay_listing(request: dict):
         return {
             "error": f"eBay listing creation error: {str(e)}"
         }
+
+# Enhanced Part Identification Endpoints
+# Multi-phase identification with browser fallback
+
+@app.post("/enhanced-identify")
+async def enhanced_identify_part(file: UploadFile = File(...), force_fallback: bool = False):
+    """Enhanced part identification with multi-phase analysis"""
+    try:
+        # Save uploaded file
+        file_path = f"uploads/{file.filename}"
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Use enhanced identification
+        result = await enhanced_part_identifier.identify_part(file_path, user_triggered_fallback=force_fallback)
+        
+        return {
+            "success": True,
+            "result": result.to_dict(),
+            "recommendations": {
+                "needs_fallback": result.needs_fallback(),
+                "confidence_level": "high" if result.confidence_score > 0.8 else "medium" if result.confidence_score > 0.5 else "low",
+                "suggested_actions": _get_suggested_actions(result)
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "fallback_available": feature_flags.is_enabled("enable_browser_fallback")
+        }
+
+@app.get("/feature-flags")
+async def get_feature_flags():
+    """Get current feature flag status for UI"""
+    return {
+        "flags": feature_flags.get_all_flags(),
+        "browser_fallback_enabled": feature_flags.is_enabled("enable_browser_fallback"),
+        "enhanced_ui_enabled": is_enhanced_ui_enabled()
+    }
+
+@app.post("/toggle-feature")
+async def toggle_feature(feature_name: str, enabled: bool):
+    """Toggle feature flags (for rollback/testing)"""
+    try:
+        if enabled:
+            feature_flags.enable_feature(feature_name)
+        else:
+            feature_flags.disable_feature(feature_name)
+        
+        return {
+            "success": True,
+            "feature": feature_name,
+            "enabled": enabled,
+            "message": f"Feature '{feature_name}' {'enabled' if enabled else 'disabled'}"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+def _get_suggested_actions(result):
+    """Get suggested actions based on identification result"""
+    actions = []
+    
+    if result.confidence_score < 0.7:
+        actions.append("Try enhanced analysis for better accuracy")
+    
+    if not result.part_number:
+        actions.append("Manual part number entry recommended")
+    
+    if "unknown" in result.part_name.lower():
+        actions.append("Consider using browser fallback for difficult parts")
+    
+    if not actions:
+        actions.append("Result looks good - proceed with listing")
+    
+    return actions
 
 # eBay Marketplace Account Deletion/Closure Notification Endpoints
 # Required for eBay API compliance
