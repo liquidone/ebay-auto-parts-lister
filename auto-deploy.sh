@@ -2,6 +2,7 @@
 
 # Auto-deployment script for eBay Auto Parts Lister
 # This script automatically pulls changes from Git and restarts the service
+# Test change: Webhook deployment should not hang - 2025-08-06
 
 LOG_FILE="/var/log/auto-deploy.log"
 APP_DIR="/opt/ebay-auto-parts-lister"
