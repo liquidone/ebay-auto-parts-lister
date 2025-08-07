@@ -81,13 +81,18 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "accepted", "message": "Deployment started"}).encode())
                 
-                # Run auto-deployment script in background with timeout
+                # Run auto-deployment script in background with proper detachment
                 try:
-                    # Use timeout to prevent hanging
+                    # Use nohup and redirect to properly detach the process
                     subprocess.Popen([
-                        'timeout', '120', 'bash', DEPLOY_SCRIPT, 'webhook'
-                    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    logging.info("Auto-deployment script started in background with 2-minute timeout")
+                        'nohup', 'bash', DEPLOY_SCRIPT, 'webhook'
+                    ], 
+                    stdout=subprocess.DEVNULL, 
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                    start_new_session=True  # This creates a new process group
+                    )
+                    logging.info("Auto-deployment script started in background with proper detachment")
                 except Exception as e:
                     logging.error(f"Failed to start deployment: {e}")
             else:

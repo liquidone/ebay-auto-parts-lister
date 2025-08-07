@@ -73,11 +73,30 @@ deploy_changes() {
     fi
 }
 
+# Function to run deployment in background
+run_deployment_background() {
+    {
+        deploy_changes
+        log_message "Auto-deployment process completed"
+    } &
+    
+    # Get the background process ID
+    DEPLOY_PID=$!
+    log_message "Deployment started in background (PID: $DEPLOY_PID)"
+    
+    # If called manually (not webhook), wait briefly then detach
+    if [ "$1" != "webhook" ]; then
+        echo "Deployment started in background. Check logs with: tail -f /var/log/auto-deploy.log"
+        echo "Process ID: $DEPLOY_PID"
+    fi
+}
+
 # Main execution
 if [ "$1" = "webhook" ]; then
-    # Called by webhook
+    # Called by webhook - run in background and exit immediately
     log_message "Auto-deployment triggered by webhook"
-    deploy_changes
+    run_deployment_background "webhook"
+    exit 0
 elif [ "$1" = "check" ]; then
     # Check for changes and deploy if found
     cd "$APP_DIR" || exit 1
@@ -87,12 +106,14 @@ elif [ "$1" = "check" ]; then
     
     if [ "$LOCAL" != "$REMOTE" ]; then
         log_message "Remote changes detected, deploying..."
-        deploy_changes
+        run_deployment_background "check"
     else
         log_message "No remote changes detected"
     fi
+    exit 0
 else
-    # Manual deployment
+    # Manual deployment - run in background
     log_message "Manual auto-deployment triggered"
-    deploy_changes
+    run_deployment_background "manual"
+    exit 0
 fi
