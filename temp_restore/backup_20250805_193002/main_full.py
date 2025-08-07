@@ -842,7 +842,7 @@ async def enhanced_identify_part(file: UploadFile = File(...), force_fallback: b
         return {
             "success": False,
             "error": str(e),
-            "fallback_available": False
+            "fallback_available": feature_flags.is_enabled("enable_browser_fallback")
         }
 
 @app.get("/feature-flags")
@@ -850,7 +850,7 @@ async def get_feature_flags():
     """Get current feature flag status for UI"""
     return {
         "flags": feature_flags.get_all_flags(),
-        "browser_fallback_enabled": False,
+        "browser_fallback_enabled": feature_flags.is_enabled("enable_browser_fallback"),
         "enhanced_ui_enabled": is_enhanced_ui_enabled()
     }
 
