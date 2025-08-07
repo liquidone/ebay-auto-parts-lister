@@ -1,6 +1,6 @@
 """
-Enhanced Part Identifier with Browser Fallback
-Provides multi-phase identification with rollback safety
+Enhanced Part Identifier
+Provides multi-phase identification with API fallback options
 """
 
 import os
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
-from .feature_flags import feature_flags, is_browser_fallback_enabled
+from .feature_flags import feature_flags
 from .part_identifier import PartIdentifier
 
 @dataclass
@@ -56,28 +56,15 @@ class EnhancedPartIdentifier:
     def __init__(self):
         """Initialize enhanced identifier"""
         self.base_identifier = PartIdentifier()
-        self.browser_fallback = None  # Lazy load
-        self.usage_tracker = UsageTracker()
         self.logger = logging.getLogger(__name__)
-        
-        # Load browser fallback only if enabled
-        if is_browser_fallback_enabled():
-            try:
-                from .gemini_browser_fallback import GeminiBrowserFallback
-                self.browser_fallback = GeminiBrowserFallback()
-                self.logger.info("Browser fallback enabled and loaded")
-            except ImportError as e:
-                self.logger.warning(f"Browser fallback not available: {e}")
-                feature_flags.disable_feature("enable_browser_fallback")
     
     async def identify_part(self, image_path: str, user_triggered_fallback: bool = False) -> IdentificationResult:
         """
-        Multi-phase part identification with fallback options
+        Multi-phase part identification with API fallback options
         
         Phase 1: Standard Gemini API
         Phase 2: Enhanced prompting
         Phase 3: OpenAI fallback (if available)
-        Phase 4: Browser fallback (if enabled and needed)
         """
         
         # Phase 1: Standard API identification
@@ -108,34 +95,20 @@ class EnhancedPartIdentifier:
                 self.logger.error(f"Phase 2 failed: {e}")
         
         # Phase 3: OpenAI fallback (if available)
-        try:
-            openai_result = await self._phase3_openai_fallback(image_path)
-            if not openai_result.needs_fallback() and not user_triggered_fallback:
-                return openai_result
-            
-            self.logger.info(f"Phase 3 result needs improvement: {openai_result.issues}")
-            
-        except Exception as e:
-            self.logger.error(f"Phase 3 failed: {e}")
-        
-        # Phase 4: Browser Fallback (if enabled and available)
-        self.logger.info(f"Browser fallback conditions: enabled={is_browser_fallback_enabled()}, browser_loaded={self.browser_fallback is not None}, can_use={self.usage_tracker.can_use_browser_fallback()}")
-        if (is_browser_fallback_enabled() and 
-            self.browser_fallback and 
-            self.usage_tracker.can_use_browser_fallback()):
+        if feature_flags.is_enabled("enable_openai_fallback"):
             try:
-                browser_result = await self._phase4_browser_fallback(image_path)
-                self.usage_tracker.record_browser_usage()
-                return browser_result
+                openai_result = await self._phase3_openai_fallback(image_path)
+                if not openai_result.needs_fallback() and not user_triggered_fallback:
+                    return openai_result
+                
+                self.logger.info(f"Phase 3 result needs improvement: {openai_result.issues}")
+                
             except Exception as e:
-                self.logger.error(f"Phase 4 browser fallback failed: {e}")
-                # Still return the browser result even if it failed - it contains useful info
-                browser_result = await self._phase4_browser_fallback(image_path)
-                return browser_result
-        else:
-            self.logger.info("Browser fallback conditions not met - skipping Phase 4")
+                self.logger.error(f"Phase 3 OpenAI fallback failed: {e}")
         
         # Return best available result
+        if 'enhanced_result' in locals():
+            return enhanced_result
         return api_result
     
     async def _phase1_standard_api(self, image_path: str) -> IdentificationResult:
@@ -213,27 +186,6 @@ class EnhancedPartIdentifier:
             timestamp=datetime.now()
         )
     
-    async def _phase4_browser_fallback(self, image_path: str) -> IdentificationResult:
-        """Phase 4: Browser-based Gemini fallback"""
-        if not self.browser_fallback:
-            raise Exception("Browser fallback not available")
-        
-        result = await self.browser_fallback.identify_part(image_path)
-        
-        issues = self._analyze_result_quality(result)
-        confidence = self._calculate_confidence_score(result, issues)
-        
-        return IdentificationResult(
-            part_name=result.get("part_name", "Unknown Part"),
-            part_number=result.get("part_number"),
-            description=result.get("description", ""),
-            confidence_score=confidence,
-            method_used="Browser Gemini",
-            issues=issues,
-            raw_response=result,
-            timestamp=datetime.now()
-        )
-    
     def _analyze_result_quality(self, result: Dict[str, Any]) -> List[str]:
         """Analyze result quality and identify issues"""
         issues = []
@@ -300,66 +252,3 @@ class EnhancedPartIdentifier:
             raw_response={"error": error_message},
             timestamp=datetime.now()
         )
-
-class UsageTracker:
-    """Track browser fallback usage to prevent abuse"""
-    
-    def __init__(self):
-        self.usage_file = "logs/browser_usage.json"
-        self.daily_limit = feature_flags.get_value("browser_fallback_max_daily", 10)
-        self.delay_seconds = feature_flags.get_value("browser_fallback_delay", 30)
-        self.last_usage = None
-        
-        # Ensure logs directory exists
-        os.makedirs("logs", exist_ok=True)
-    
-    def can_use_browser_fallback(self) -> bool:
-        """Check if browser fallback can be used"""
-        # Check daily limit
-        today_usage = self._get_today_usage()
-        if today_usage >= self.daily_limit:
-            return False
-        
-        # Check delay since last usage
-        if self.last_usage:
-            time_since_last = datetime.now() - self.last_usage
-            if time_since_last.total_seconds() < self.delay_seconds:
-                return False
-        
-        return True
-    
-    def record_browser_usage(self):
-        """Record browser fallback usage"""
-        self.last_usage = datetime.now()
-        self._save_usage_record()
-    
-    def _get_today_usage(self) -> int:
-        """Get today's browser usage count"""
-        try:
-            if os.path.exists(self.usage_file):
-                with open(self.usage_file, 'r') as f:
-                    data = json.load(f)
-                
-                today = datetime.now().date().isoformat()
-                return data.get(today, 0)
-        except Exception:
-            pass
-        
-        return 0
-    
-    def _save_usage_record(self):
-        """Save usage record to file"""
-        try:
-            data = {}
-            if os.path.exists(self.usage_file):
-                with open(self.usage_file, 'r') as f:
-                    data = json.load(f)
-            
-            today = datetime.now().date().isoformat()
-            data[today] = data.get(today, 0) + 1
-            
-            with open(self.usage_file, 'w') as f:
-                json.dump(data, f, indent=2)
-        
-        except Exception as e:
-            logging.error(f"Failed to save usage record: {e}")

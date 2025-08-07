@@ -12,15 +12,13 @@ class FeatureFlags:
     def __init__(self):
         """Initialize feature flags with safe defaults"""
         self.flags = {
-            # Browser fallback system (experimental)
-            "enable_browser_fallback": self._get_env_bool("ENABLE_BROWSER_FALLBACK", False),
-            "browser_fallback_max_daily": self._get_env_int("BROWSER_FALLBACK_MAX_DAILY", 10),
-            "browser_fallback_delay": self._get_env_int("BROWSER_FALLBACK_DELAY", 30),
-            
             # Enhanced identification features
             "enable_enhanced_prompts": self._get_env_bool("ENABLE_ENHANCED_PROMPTS", True),
             "enable_confidence_scoring": self._get_env_bool("ENABLE_CONFIDENCE_SCORING", True),
-            "enable_fallback_ui": self._get_env_bool("ENABLE_FALLBACK_UI", True),
+            "enable_openai_fallback": self._get_env_bool("ENABLE_OPENAI_FALLBACK", False),
+            
+            # UI features
+            "enable_enhanced_ui": self._get_env_bool("ENABLE_ENHANCED_UI", True),
             
             # Safety limits
             "max_api_retries": self._get_env_int("MAX_API_RETRIES", 3),
@@ -41,9 +39,6 @@ class FeatureFlags:
     
     def is_enabled(self, feature: str) -> bool:
         """Check if a feature is enabled"""
-        # Force enable browser fallback for testing
-        if feature == "enable_browser_fallback":
-            return True
         return self.flags.get(feature, False)
     
     def get_value(self, feature: str, default: Any = None) -> Any:
@@ -66,17 +61,10 @@ class FeatureFlags:
 feature_flags = FeatureFlags()
 
 # Convenience functions
-def is_browser_fallback_enabled() -> bool:
-    """Check if browser fallback is enabled"""
-    return feature_flags.is_enabled("enable_browser_fallback")
-
 def is_enhanced_ui_enabled() -> bool:
     """Check if enhanced UI features are enabled"""
-    return feature_flags.is_enabled("enable_fallback_ui")
+    return feature_flags.is_enabled("enable_enhanced_ui")
 
-def get_browser_limits() -> Dict[str, int]:
-    """Get browser fallback usage limits"""
-    return {
-        "max_daily": feature_flags.get_value("browser_fallback_max_daily", 10),
-        "delay_seconds": feature_flags.get_value("browser_fallback_delay", 30)
-    }
+def is_openai_fallback_enabled() -> bool:
+    """Check if OpenAI fallback is enabled"""
+    return feature_flags.is_enabled("enable_openai_fallback")
