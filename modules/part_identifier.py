@@ -154,7 +154,13 @@ CONDITION: [assessment]"""
                 "confidence_score": 0.8,
                 "gemini_ocr_text": response_text
             }
-            # Don't add Step 1 to raw_gemini_responses since it's already shown in step1_ocr_raw section
+            self.debug_output["raw_gemini_responses"].append({
+                "step": "Step 1 OCR",
+                "model": "gemini-2.5-pro",
+                "prompt": prompt[:500],  # First 500 chars
+                "raw_response": response_text,
+                "timestamp": datetime.now().isoformat()
+            })
             
             # Parse the response
             result = self._parse_identification_response(response_text)
