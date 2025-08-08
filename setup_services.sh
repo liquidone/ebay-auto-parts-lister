@@ -18,7 +18,7 @@ User=ebayapp
 Group=ebayapp
 WorkingDirectory=/opt/ebay-auto-parts-lister
 Environment=PATH=/opt/ebay-auto-parts-lister/venv/bin
-ExecStart=/opt/ebay-auto-parts-lister/venv/bin/uvicorn main_full:app --host 127.0.0.1 --port 8000 --workers 2
+ExecStart=/opt/ebay-auto-parts-lister/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=3

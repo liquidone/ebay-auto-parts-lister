@@ -57,14 +57,50 @@ async def root():
     <html>
     <head>
         <title>eBay Auto Parts Lister</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="AI-powered auto parts identification and eBay listing creation tool">
+        <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23007bff'%3E%3Cpath d='M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM10 6a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z'/%3E%3C/svg%3E">
         <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            .upload-area { border: 2px dashed #ccc; padding: 40px; text-align: center; margin: 20px 0; }
-            .upload-area:hover { border-color: #007bff; }
-            .results { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 5px; }
-            .image-preview { max-width: 300px; margin: 10px; }
-            button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
-            button:hover { background: #0056b3; }
+            * { box-sizing: border-box; }
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                max-width: 800px; margin: 0 auto; padding: 20px; 
+                background: #f8f9fa; color: #333; line-height: 1.6;
+            }
+            h1 { 
+                color: #007bff; text-align: center; margin-bottom: 30px; 
+                font-size: 2.5em; font-weight: 300; 
+                text-shadow: 0 2px 4px rgba(0,123,255,0.1);
+            }
+            .upload-area { 
+                border: 3px dashed #ccc; padding: 40px; text-align: center; margin: 20px 0; 
+                background: white; border-radius: 12px; transition: all 0.3s ease;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .upload-area:hover { 
+                border-color: #007bff; background: #f0f8ff; 
+                transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,123,255,0.15);
+            }
+            .results { 
+                margin-top: 20px; padding: 20px; background: white; border-radius: 12px; 
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 4px solid #007bff;
+            }
+            .image-preview { max-width: 300px; margin: 10px; border-radius: 8px; }
+            button { 
+                background: linear-gradient(135deg, #007bff, #0056b3); color: white; 
+                padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; 
+                font-weight: 500; transition: all 0.3s ease; margin: 5px;
+                box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+            }
+            button:hover { 
+                background: linear-gradient(135deg, #0056b3, #004085); 
+                transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,123,255,0.4);
+            }
+            button:disabled { 
+                background: #6c757d; cursor: not-allowed; transform: none; 
+                box-shadow: none; opacity: 0.6;
+            }
         </style>
     </head>
     <body>
