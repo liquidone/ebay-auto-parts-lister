@@ -221,11 +221,15 @@ Key Features: [bullet points]"""
         """Parse the comprehensive response from single Gemini call"""
         result = {
             "part_name": "",
+            "name": "",  # Add 'name' field for compatibility
             "ebay_title": "",
             "description": "",
             "category": "Other Auto Parts",
             "vehicles": "",
             "price": 0,
+            "estimated_price": 0,  # Add for compatibility
+            "market_price": 0,  # Add for compatibility
+            "quick_sale_price": 0,  # Add for compatibility
             "price_range": {"low": 0, "high": 0},
             "condition": "Used",
             "part_numbers": [],
@@ -316,12 +320,19 @@ Key Features: [bullet points]"""
                         pass
             
             elif current_section == "listing":
-                if "Title:" in line:
-                    result["ebay_title"] = line.split("Title:", 1)[1].strip()
+                if "Title:" in line or "Optimized Title:" in line:
+                    title = line.split(":", 1)[1].strip() if ":" in line else ""
+                    result["ebay_title"] = title[:80]  # Limit to 80 chars
                 elif "Category:" in line:
                     result["category"] = line.split("Category:", 1)[1].strip()
                 elif "Description:" in line:
-                    result["description"] = line.split("Description:", 1)[1].strip()
+                    # Start capturing multi-line description
+                    desc_start = line.split("Description:", 1)[1].strip() if "Description:" in line else ""
+                    result["description"] = desc_start
+                elif current_section == "listing" and result["description"] and not any(x in line for x in ["Title:", "Category:", "Key Features:"]):
+                    # Continue building description if we're in listing section
+                    if not line.startswith("###") and not line.startswith("**"):
+                        result["description"] += " " + line
                 elif "Key Features:" in line:
                     features = line.split(":", 1)[1].strip()
                     if features and features not in result["key_features"]:
@@ -330,6 +341,9 @@ Key Features: [bullet points]"""
         # Build final part name if not set
         if not result["part_name"] and result["make"] and result["model"]:
             result["part_name"] = f"{result['make']} {result['model']} {result.get('year_range', '')} Part"
+        
+        # Ensure 'name' field matches 'part_name' for compatibility
+        result["name"] = result["part_name"]
         
         # Build eBay title if not set
         if not result["ebay_title"]:
@@ -345,6 +359,27 @@ Key Features: [bullet points]"""
             if result["part_numbers"]:
                 title_parts.append(result["part_numbers"][0])
             result["ebay_title"] = " ".join(title_parts)[:80]
+        
+        # Clean up description - remove any prompt text that leaked through
+        if result["description"]:
+            # Remove common prompt artifacts
+            desc = result["description"]
+            prompt_artifacts = [
+                "SCENARIO:", "CRITICAL:", "YOUR TASK:", "Based on a thorough review",
+                "perform the following steps:", "### STEP", "**STEP"
+            ]
+            for artifact in prompt_artifacts:
+                if artifact in desc:
+                    # Cut off at the artifact
+                    desc = desc.split(artifact)[0].strip()
+            result["description"] = desc[:500]  # Limit description length
+        
+        # Ensure price fields are set
+        if result["price"] > 0:
+            result["estimated_price"] = result["price"]
+            result["market_price"] = result["price"]
+            if result["quick_sale_price"] == 0:
+                result["quick_sale_price"] = result["price"] * 0.8  # 80% for quick sale
         
         return result
 
