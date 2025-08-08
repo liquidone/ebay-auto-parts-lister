@@ -22,15 +22,20 @@ class PartIdentifier:
         # Initialize Gemini client only - clean, simple architecture
         gemini_key = os.getenv("GEMINI_API_KEY")
         
+        print(f"🔍 DEBUG: PartIdentifier.__init__ called")
+        print(f"🔍 DEBUG: GEMINI_API_KEY environment variable: {'SET (hidden)' if gemini_key else 'NOT SET'}")
+        
         if gemini_key:
             genai.configure(api_key=gemini_key)
             self.ai_client = "gemini"
             self.demo_mode = False
-            print("SUCCESS: Using Google Gemini for AI analysis")
+            print("✅ SUCCESS: Using Google Gemini for AI analysis")
+            print(f"✅ DEBUG: API key length: {len(gemini_key)} characters")
         else:
             self.ai_client = None
             self.demo_mode = True
-            print("⚠️ Running in demo mode - no Gemini API key found")
+            print("⚠️ WARNING: Running in demo mode - no Gemini API key found")
+            print("⚠️ To enable real analysis, set GEMINI_API_KEY environment variable")
         
         # Initialize debug tracking for raw Gemini prompts and responses
         self._debug_gemini_responses = []
@@ -45,7 +50,12 @@ class PartIdentifier:
 
     async def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
         """Identify auto part from multiple images"""
+        print(f"🔍 DEBUG: identify_part_from_multiple_images called")
+        print(f"🔍 DEBUG: demo_mode = {self.demo_mode}")
+        print(f"🔍 DEBUG: ai_client = {self.ai_client}")
+        
         if self.demo_mode:
+            print(f"⚠️ DEBUG: Returning demo response - no API key configured")
             return self._get_demo_response()
         
         try:

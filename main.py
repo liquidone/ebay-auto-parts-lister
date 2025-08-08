@@ -462,6 +462,15 @@ async def root():
             }
             
             function displaySingleResult(result) {
+                // DEBUG: Log the entire result object to see what we're receiving
+                console.log('=== DEBUG: Full API Response ===');
+                console.log(result);
+                console.log('=== DEBUG: debug_output present? ===', result.debug_output ? 'YES' : 'NO');
+                if (result.debug_output) {
+                    console.log('=== DEBUG: debug_output contents ===');
+                    console.log(result.debug_output);
+                }
+                
                 const resultsDiv = document.getElementById('results');
                 
                 if (result.error) {
@@ -574,16 +583,22 @@ async def root():
             }
             
             function populateDebugPanel(result) {
+                console.log('=== DEBUG: populateDebugPanel called ===');
+                console.log('Result object:', result);
+                
                 const debugPanel = document.getElementById('debugPanel');
                 const debugContent = document.getElementById('debugContent');
                 
                 if (!result.debug_output) {
+                    console.log('=== DEBUG: No debug_output in result, showing default message ===');
                     debugContent.innerHTML = '<p style="color: #ff6b6b; font-style: italic;">No debug data available in this result.</p>';
                     debugPanel.style.display = 'block';
                     return;
                 }
                 
+                console.log('=== DEBUG: debug_output found, processing... ===');
                 const debug = result.debug_output;
+                console.log('Debug data structure:', debug);
                 let debugHtml = '';
                 
                 // Step 1: OCR Raw Data
