@@ -129,6 +129,9 @@ class PartIdentifier:
             return self._get_demo_response()
         
         try:
+            # Perform OCR on images first (using paths)
+            ocr_text, vin_number = self._perform_ocr_on_images(image_paths)
+            
             # Encode all images
             encoded_images = []
             for image_path in image_paths:
@@ -136,7 +139,7 @@ class PartIdentifier:
                     encoded_images.append(image_file.read())
             
             # SINGLE COMPREHENSIVE PROMPT that combines all 3 steps
-            result = self._single_comprehensive_analysis(encoded_images)
+            result = self._single_comprehensive_analysis(encoded_images, ocr_text, vin_number)
             
             # Calculate processing time
             processing_time = (datetime.now() - start_time).total_seconds()
@@ -160,14 +163,11 @@ class PartIdentifier:
                 "debug_output": self.debug_output
             }
 
-    def _single_comprehensive_analysis(self, images: List[bytes]) -> Dict:
+    def _single_comprehensive_analysis(self, images: List[bytes], ocr_text: str, vin_number: Optional[str]) -> Dict:
         """
         Single comprehensive Gemini API call that does everything at once
         """
         self.debug_output["workflow_steps"].append("Single comprehensive analysis started")
-        
-        # Perform OCR on images first
-        ocr_text, vin_number = self._perform_ocr_on_images(images)
         
         # Determine scenario based on OCR results
         if ocr_text and ocr_text.strip():
