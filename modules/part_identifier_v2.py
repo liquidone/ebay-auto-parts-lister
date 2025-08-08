@@ -380,7 +380,7 @@ Please be thorough and accurate, as this information will be used to create a re
                 "brand": parsed_result.get("brand", ""),
                 "vehicles": parsed_result.get("vehicles", ""),
                 "category": parsed_result.get("category", ""),
-                "price_range": parsed_result.get("price_range", {}),
+                "price_range": parsed_result.get("price_range", dict()),
                 "key_features": parsed_result.get("key_features", []),
                 "fitment_notes": parsed_result.get("fitment_notes", ""),
                 "confidence_score": parsed_result.get("confidence_score", 7)
@@ -403,7 +403,7 @@ Please be thorough and accurate, as this information will be used to create a re
                 "is_oem": result["is_oem"],
                 "brand": result["brand"],
                 "price": result["estimated_price"],
-                "price_range": f"${result.get('price_range', {}).get('low', 0)}-${result.get('price_range', {}).get('high', 0)}",
+                "price_range": f"${result.get('price_range', dict()).get('low', 0)}-${result.get('price_range', dict()).get('high', 0)}",
                 "weight": result["weight_lbs"],
                 "dimensions": result["dimensions_inches"],
                 "fitment_notes": result["fitment_notes"],
