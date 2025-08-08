@@ -68,13 +68,14 @@ class PartIdentifier:
                 "api_client": "gemini" if gemini_key else None,
                 "api_key_configured": bool(gemini_key)
             },
+            "workflow_steps": [],
             "step1_vision_ocr": {},
             "step2_dynamic_prompt": {},
             "step3_gemini_analysis": {},
             "raw_api_responses": [],
-            "workflow_steps": [],
-            "processing_time": 0,
-            "extracted_part_numbers": []
+            "raw_gemini_responses": [],  # Add this for frontend compatibility
+            "extracted_part_numbers": [],
+            "timing": {}
         }
     
     def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
@@ -152,16 +153,27 @@ class PartIdentifier:
                         "text_blocks": [text.description for text in texts[1:]]  # Individual text blocks
                     })
                     
+                    # Create response dict for debug output
+                    response_dict = {
+                        "full_text": full_text,
+                        "text_blocks": [text.description for text in texts[1:20]]  # First 20 blocks for debug
+                    }
+                    
                     # Add to debug output
-                    self.debug_output["raw_api_responses"].append({
-                        "step": f"Vision OCR - Image {idx + 1}",
+                    vision_response_data = {
+                        "step": "Step 1: Google Vision OCR",
                         "api": "Google Vision API",
-                        "raw_response": {
-                            "full_text": full_text[:500],  # First 500 chars for debug
-                            "blocks_found": len(texts) - 1
+                        "raw_request": {
+                            "method": "TEXT_DETECTION",
+                            "image_size": len(image_content)
                         },
+                        "raw_response": response_dict,
                         "timestamp": datetime.now().isoformat()
-                    })
+                    }
+                    
+                    # Add to both fields for compatibility
+                    self.debug_output["raw_api_responses"].append(vision_response_data)
+                    self.debug_output["raw_gemini_responses"].append(vision_response_data)
                 
             except Exception as e:
                 print(f"Error performing OCR on image {idx}: {e}")
@@ -333,14 +345,18 @@ Please be thorough and accurate, as this information will be used to create a re
             response_text = response.text
             
             # Add FULL content to debug output (no truncation)
-            self.debug_output["raw_api_responses"].append({
+            gemini_response_data = {
                 "step": "Gemini Analysis",
                 "model": "gemini-2.5-pro",
                 "prompt": prompt,  # Full prompt, not truncated
                 "raw_response": response_text,  # Full response
                 "images_count": len(image_paths),
                 "timestamp": datetime.now().isoformat()
-            })
+            }
+            
+            # Add to both fields for compatibility
+            self.debug_output["raw_api_responses"].append(gemini_response_data)
+            self.debug_output["raw_gemini_responses"].append(gemini_response_data)
             
             self.debug_output["step3_gemini_analysis"] = {
                 "response_preview": response_text,  # Full response, not truncated
