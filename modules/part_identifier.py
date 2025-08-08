@@ -9,9 +9,9 @@ import google.generativeai as genai
 try:
     from dotenv import load_dotenv
     load_dotenv()
-    print("✅ Loaded .env file successfully")
+    print("Loaded .env file successfully")
 except ImportError:
-    print("⚠️ python-dotenv not installed, using system environment variables")
+    print("WARNING: python-dotenv not installed, using system environment variables")
 
 class PartIdentifier:
     def __init__(self):
@@ -35,11 +35,11 @@ class PartIdentifier:
             genai.configure(api_key=gemini_key)
             self.model = genai.GenerativeModel('gemini-2.5-pro')  # Using Gemini 2.5 Pro
             self.demo_mode = False
-            print("✅ Using Google Gemini 2.5 Pro for AI analysis")
+            print("Using Google Gemini 2.5 Pro for AI analysis")
         else:
             self.model = None
             self.demo_mode = True
-            print("⚠️ WARNING: Running in demo mode - no Gemini API key found")
+            print("WARNING: Running in demo mode - no Gemini API key found")
 
     async def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
         """
