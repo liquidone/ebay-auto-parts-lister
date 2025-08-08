@@ -1,13 +1,17 @@
 import os
 import json
 import base64
-import io
-import re
-import time
-from typing import Dict, List
-from PIL import Image
-import google.generativeai as genai
+import asyncio
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
+import google.generativeai as genai
+import re
+from google.cloud import vision
+from google.oauth2 import service_account
+from dotenv import load_dotenv
+
+# FORCE LOAD .env FILE - FIX FOR PRODUCTION SERVER
+load_dotenv()
 
 # Google Cloud Vision API for enhanced OCR
 try:
