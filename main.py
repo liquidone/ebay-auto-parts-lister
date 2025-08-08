@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from modules.image_processor_simple import ImageProcessor
-from modules.part_identifier_v2 import PartIdentifier
+from modules.part_identifier import PartIdentifier
 from modules.feature_flags import feature_flags, is_enhanced_ui_enabled
 from modules.database import Database
 from modules.ebay_api import eBayAPI
