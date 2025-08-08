@@ -434,7 +434,7 @@ Please be thorough and accurate, as this information will be used to create a re
                 "is_oem": result["is_oem"],
                 "brand": result["brand"],
                 "price": result["estimated_price"],
-                "price_range": f"${result.get('price_range', dict()).get('low', 0)}-${result.get('price_range', dict()).get('high', 0)}",
+                "price_range": f"${result.get('price_range', {}).get('low', 0)}-${result.get('price_range', {}).get('high', 0)}",
                 "weight": result["weight_lbs"],
                 "dimensions": result["dimensions_inches"],
                 "fitment_notes": result["fitment_notes"],
@@ -517,7 +517,18 @@ Please be thorough and accurate, as this information will be used to create a re
                 # Look for part numbers in various formats
                 pn_text = pn_section.group(1)
                 part_nums = re.findall(r'[A-Z0-9]{2,}(?:-[A-Z0-9]+)+|[0-9]{5,}[A-Z]+|[A-Z]{2,}[0-9]{4,}', pn_text)
-                result["part_numbers"] = list(set(part_nums))[:5]  # Keep top 5 unique
+                # Safely handle deduplication - part_nums should be strings from regex, but let's be safe
+                try:
+                    unique_parts = []
+                    seen = set()
+                    for pn in part_nums:
+                        if isinstance(pn, str) and pn not in seen:
+                            seen.add(pn)
+                            unique_parts.append(pn)
+                    result["part_numbers"] = unique_parts[:5]  # Keep top 5 unique
+                except Exception as e:
+                    print(f"DEBUG: Error processing part numbers: {e}")
+                    result["part_numbers"] = part_nums[:5] if isinstance(part_nums, list) else []
         
         # Extract brand
         if "Brand" in clean_text or "Manufacturer" in clean_text:
