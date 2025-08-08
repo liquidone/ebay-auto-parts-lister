@@ -332,22 +332,24 @@ Please be thorough and accurate, as this information will be used to create a re
                 with open(image_path, "rb") as image_file:
                     encoded_images.append(image_file.read())
             
-            # Build content for Gemini
-            content = [prompt]
-            for img in encoded_images:
-                content.append({
-                    "mime_type": "image/jpeg",
-                    "data": base64.b64encode(img).decode()
-                })
+            # Build content for Gemini - using PIL Image format
+            from PIL import Image
+            import io
+            
+            content_parts = [prompt]
+            for img_bytes in encoded_images:
+                # Convert bytes to PIL Image
+                img = Image.open(io.BytesIO(img_bytes))
+                content_parts.append(img)
             
             # Debug: Check content structure before sending
-            print(f"DEBUG: Content type: {type(content)}, Length: {len(content)}")
-            print(f"DEBUG: First item type: {type(content[0])}")
-            if len(content) > 1:
-                print(f"DEBUG: Second item type: {type(content[1])}, Keys: {content[1].keys() if isinstance(content[1], dict) else 'Not a dict'}")
+            print(f"DEBUG: Content parts type: {type(content_parts)}, Length: {len(content_parts)}")
+            print(f"DEBUG: First item type: {type(content_parts[0])}")
+            if len(content_parts) > 1:
+                print(f"DEBUG: Second item type: {type(content_parts[1])}")
             
             # Send to Gemini
-            response = self.model.generate_content(content)
+            response = self.model.generate_content(content_parts)
             response_text = response.text
             
             # Add FULL content to debug output (no truncation)
