@@ -359,39 +359,55 @@ Please be thorough and accurate, as this information will be used to create a re
             self.debug_output["raw_gemini_responses"].append(gemini_response_data)
             
             # Parse the response first
-            result = self._parse_gemini_response(response_text)
+            parsed_result = self._parse_gemini_response(response_text)
             
-            # Map Gemini parsed data to frontend expected fields
-            # This ensures the main result object has all the right fields
-            result["part_name"] = result.get("name", "")
-            result["seo_title"] = result.get("ebay_title", "")
-            result["part_number"] = result.get("part_numbers", [""])[0] if result.get("part_numbers") else ""
-            result["estimated_price"] = result.get("price", 100)
-            result["weight_lbs"] = result.get("weight", "")
-            result["dimensions_inches"] = result.get("dimensions", "")
+            # Create properly mapped result for frontend
+            result = {
+                "part_name": parsed_result.get("name", "Unknown Part"),
+                "seo_title": parsed_result.get("ebay_title", ""),
+                "description": parsed_result.get("description", ""),
+                "part_number": parsed_result.get("part_numbers", [""])[0] if parsed_result.get("part_numbers") else "",
+                "part_numbers": parsed_result.get("part_numbers", []),
+                "estimated_price": parsed_result.get("price", 100),
+                "weight_lbs": parsed_result.get("weight", ""),
+                "dimensions_inches": parsed_result.get("dimensions", ""),
+                "make": parsed_result.get("make", ""),
+                "model": parsed_result.get("model", ""),
+                "year_range": parsed_result.get("year_range", ""),
+                "condition": parsed_result.get("condition", "Used"),
+                "color": parsed_result.get("color", ""),
+                "is_oem": parsed_result.get("is_oem", False),
+                "brand": parsed_result.get("brand", ""),
+                "vehicles": parsed_result.get("vehicles", ""),
+                "category": parsed_result.get("category", ""),
+                "price_range": parsed_result.get("price_range", {}),
+                "key_features": parsed_result.get("key_features", []),
+                "fitment_notes": parsed_result.get("fitment_notes", ""),
+                "confidence_score": parsed_result.get("confidence_score", 7)
+            }
             
             # Add parsed data to debug output for frontend use
             self.debug_output["step3_gemini_analysis"] = {
                 "response_preview": response_text,  # Full response, not truncated
                 "response_length": len(response_text),
                 # Add all parsed fields for frontend to use
-                "part_name": result.get("name", ""),
-                "seo_title": result.get("ebay_title", ""),
-                "description": result.get("description", ""),
-                "part_numbers": result.get("part_numbers", []),
-                "make": result.get("make", ""),
-                "model": result.get("model", ""),
-                "year_range": result.get("year_range", ""),
-                "condition": result.get("condition", "Used"),
-                "color": result.get("color", ""),
-                "is_oem": result.get("is_oem", False),
-                "brand": result.get("brand", ""),
-                "price": result.get("price", 0),
+                "part_name": result["part_name"],
+                "seo_title": result["seo_title"],
+                "description": result["description"],
+                "part_numbers": result["part_numbers"],
+                "make": result["make"],
+                "model": result["model"],
+                "year_range": result["year_range"],
+                "condition": result["condition"],
+                "color": result["color"],
+                "is_oem": result["is_oem"],
+                "brand": result["brand"],
+                "price": result["estimated_price"],
                 "price_range": f"${result.get('price_range', {}).get('low', 0)}-${result.get('price_range', {}).get('high', 0)}",
-                "weight": result.get("weight", ""),
-                "dimensions": result.get("dimensions", ""),
-                "fitment_notes": result.get("fitment_notes", ""),
-                "vehicles": result.get("vehicles", "")
+                "weight": result["weight_lbs"],
+                "dimensions": result["dimensions_inches"],
+                "fitment_notes": result["fitment_notes"],
+                "vehicles": result["vehicles"]
             }
             
             return result
