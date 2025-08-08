@@ -582,22 +582,24 @@ async def root():
                 populateDebugPanel(result);
             }
             
-            function populateDebugPanel(result) {
+            function populateDebugPanel(data) {
                 console.log('=== DEBUG: populateDebugPanel called ===');
-                console.log('Result object:', result);
+                console.log('Result object:', data);
                 
                 const debugPanel = document.getElementById('debugPanel');
                 const debugContent = document.getElementById('debugContent');
                 
-                if (!result.debug_output) {
-                    console.log('=== DEBUG: No debug_output in result, showing default message ===');
-                    debugContent.innerHTML = '<p style="color: #ff6b6b; font-style: italic;">No debug data available in this result.</p>';
-                    debugPanel.style.display = 'block';
+                // LOG THE RAW DATA TO SEE WHAT WE'RE GETTING
+                console.log('DEBUG: Raw data received:', data);
+                console.log('DEBUG: debug_output field:', data ? data.debug_output : 'No data');
+                
+                if (!data || !data.debug_output) {
+                    debugContent.innerHTML = '<div class="debug-section">No debug data available</div>';
                     return;
                 }
                 
                 console.log('=== DEBUG: debug_output found, processing... ===');
-                const debug = result.debug_output;
+                const debug = data.debug_output;
                 console.log('Debug data structure:', debug);
                 let debugHtml = '';
                 
