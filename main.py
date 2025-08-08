@@ -602,18 +602,37 @@ async def root():
                     `;
                 }
                 
-                // Step 2: Fitment Raw Data
+                // Step 2: Raw Gemini Fitment Prompt and Response
+                if (debug.raw_gemini_responses && debug.raw_gemini_responses.length > 0) {
+                    const fitmentResponse = debug.raw_gemini_responses.find(r => r.step === 'Step 2 Fitment Lookup');
+                    if (fitmentResponse) {
+                        debugHtml += `
+                            <div class="debug-section">
+                                <div class="debug-key">STEP 2: Fitment Lookup Raw</div>
+                                <div class="debug-value">
+                                    <div><span class="debug-key">Part Number:</span> ${fitmentResponse.part_number || 'N/A'}</div>
+                                    <div><span class="debug-key">Gemini 2.5 Pro Prompt:</span></div>
+                                    <pre style="background: #2a2a2a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px;">${fitmentResponse.prompt || 'N/A'}</pre>
+                                    <div><span class="debug-key">Raw Gemini Response:</span></div>
+                                    <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px; color: #4CAF50;">${fitmentResponse.raw_response || 'N/A'}</pre>
+                                    <div><span class="debug-key">Timestamp:</span> ${fitmentResponse.timestamp || 'N/A'}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                // Step 2: Fitment Results Summary
                 if (debug.step2_fitment_raw) {
                     debugHtml += `
                         <div class="debug-section">
-                            <div class="debug-key">STEP 2: Fitment Lookup Raw</div>
+                            <div class="debug-key">STEP 2: Fitment Results Summary</div>
                             <div class="debug-value">
                                 <div><span class="debug-key">Make:</span> ${debug.step2_fitment_raw.make || 'N/A'}</div>
                                 <div><span class="debug-key">Model:</span> ${debug.step2_fitment_raw.model || 'N/A'}</div>
                                 <div><span class="debug-key">Year Range:</span> ${debug.step2_fitment_raw.year_range || 'N/A'}</div>
                                 <div><span class="debug-key">Part Description:</span> ${debug.step2_fitment_raw.part_description || 'N/A'}</div>
                                 <div><span class="debug-key">Confidence:</span> ${debug.step2_fitment_raw.confidence || 'N/A'}</div>
-                                <div><span class="debug-key">Data Source:</span> ${debug.step2_fitment_raw.data_source || 'Gemini Training Data'}</div>
                             </div>
                         </div>
                     `;
