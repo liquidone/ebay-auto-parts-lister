@@ -84,27 +84,39 @@ class PartIdentifier:
                 
                 # STEP 2: Part Number-Based Fitment Lookup
                 print(f"\n=== STEP 2: PART NUMBER FITMENT LOOKUP ===")
+                print(f"🔍 DEBUG: Raw OCR analysis: {ocr_analysis}")
+                
                 part_numbers_list = []
                 if ocr_analysis.get('part_numbers'):
-                    part_numbers_list = [pn.strip() for pn in ocr_analysis['part_numbers'].split(',') if pn.strip()]
+                    raw_part_numbers = ocr_analysis['part_numbers']
+                    print(f"🔍 DEBUG: Raw part numbers from OCR: '{raw_part_numbers}'")
+                    part_numbers_list = [pn.strip() for pn in raw_part_numbers.split(',') if pn.strip()]
+                    print(f"🔍 DEBUG: Cleaned part numbers list: {part_numbers_list}")
                 
                 fitment_data = {}
                 if part_numbers_list:
+                    print(f"🔍 DEBUG: Calling fitment lookup with: {part_numbers_list}")
                     fitment_data = await self._lookup_fitment_by_part_number(part_numbers_list)
+                    print(f"🔍 DEBUG: Fitment lookup returned: {fitment_data}")
                 else:
-                    print("No part numbers found for fitment lookup")
+                    print("❌ DEBUG: No part numbers found for fitment lookup")
+                    print(f"❌ DEBUG: OCR analysis keys: {list(ocr_analysis.keys())}")
                 
                 # STEP 3: Context and Description Generation
                 print(f"\n=== STEP 3: CONTEXT & DESCRIPTION ===")
+                print(f"🔍 DEBUG: Passing fitment data to Step 3: {fitment_data}")
+                print(f"🔍 DEBUG: Fitment data has make: {fitment_data.get('make', 'MISSING')}")
                 analysis = await self._step2_validation_research(encoded_images, ocr_analysis, fitment_data)
+                print(f"🔍 DEBUG: Step 3 returned analysis: {analysis}")
                 
-                # STEP 4: External Pattern Validation
-                print(f"\n=== STEP 4: EXTERNAL VALIDATION ===")
-                if part_numbers_list:
-                    validation_results = await self._validate_part_numbers_externally(part_numbers_list)
-                    analysis = await self._enhanced_post_processing(analysis, validation_results)
-                else:
-                    print("No part numbers found for external validation")
+                # STEP 4: External Pattern Validation (DISABLED - causes wrong vehicle identification)
+                print(f"\n=== STEP 4: EXTERNAL VALIDATION (DISABLED) ===")
+                print("🚫 Pattern-based validation disabled - relying on part number fitment lookup only")
+                # if part_numbers_list:
+                #     validation_results = await self._validate_part_numbers_externally(part_numbers_list)
+                #     analysis = await self._enhanced_post_processing(analysis, validation_results)
+                # else:
+                #     print("No part numbers found for external validation")
                 
                 # FINAL: Database validation (fallback)
                 analysis = await self._validate_part_identification(analysis)
@@ -719,6 +731,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
             try:
                 fitment_data = json.loads(response_text)
                 print(f"✅ Fitment lookup results: {fitment_data}")
+                print(f"🔍 DEBUG: Raw Gemini response for part {primary_part_number}: {response_text}")
                 
                 # Validate and clean the fitment data
                 cleaned_fitment = {
@@ -733,6 +746,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
                 
                 print(f"🎯 Final fitment: {cleaned_fitment['make']} {cleaned_fitment['model']} {cleaned_fitment['year_range']}")
                 print(f"📊 Confidence: {cleaned_fitment['confidence']}/10")
+                print(f"🔍 DEBUG: Cleaned fitment data: {cleaned_fitment}")
                 
                 return cleaned_fitment
                 
@@ -1409,8 +1423,10 @@ Be extremely careful with part number OCR - accuracy is critical.
                 images.append(image)
             
             # Build context with fitment data if available
+            print(f"🔍 DEBUG: Step 3 received fitment_data: {fitment_data}")
             fitment_context = ""
             if fitment_data and fitment_data.get('make'):
+                print(f"✅ DEBUG: Using confirmed fitment data: {fitment_data.get('make')} {fitment_data.get('model')} {fitment_data.get('year_range')}")
                 fitment_context = f"""
 CONFIRMED FITMENT DATA (from part number lookup):
 - Vehicle: {fitment_data.get('make', '')} {fitment_data.get('model', '')} {fitment_data.get('year_range', '')}
@@ -1420,6 +1436,11 @@ CONFIRMED FITMENT DATA (from part number lookup):
 
 USE THIS FITMENT DATA - do not guess or override with visual analysis.
 """
+                print(f"🔍 DEBUG: Generated fitment context: {fitment_context}")
+            else:
+                print(f"❌ DEBUG: No valid fitment data available, will use visual analysis")
+                print(f"❌ DEBUG: fitment_data is: {fitment_data}")
+                print(f"❌ DEBUG: fitment_data.get('make') is: {fitment_data.get('make') if fitment_data else 'None'}")
             
             prompt = f"""
 You are an expert eBay auto parts reseller. Generate a professional listing description using the provided OCR and fitment data.
