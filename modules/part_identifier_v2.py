@@ -474,7 +474,7 @@ Please be thorough and accurate, as this information will be used to create a re
                         break
         
         # Clean text for further processing
-        clean_text = response_text.replace('**', '').replace('*', '')
+        clean_text = str(response_text).replace('**', '').replace('*', '')
         
         # Build description from the full response (cleaned)
         result["description"] = clean_text[:500] if len(clean_text) > 500 else clean_text
