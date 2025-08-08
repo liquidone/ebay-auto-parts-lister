@@ -166,116 +166,39 @@ class PartIdentifier:
             
             print(f"Total images prepared for Gemini: {len(images)}")
             
-            # Create the enhanced prompt for automotive parts analysis with CHAIN-OF-THOUGHT and FEW-SHOT EXAMPLES
+            # Simplified prompt based on user's working Gemini 2.5 Flash version
             prompt = f"""
-            You are an expert automotive parts specialist with access to comprehensive part databases. Follow this EXACT analysis chain:
+            You are an expert eBay reseller. Your sole purpose is to help me identify and price auto parts for quick and profitable sales.
 
-            STEP 1: VISUAL INSPECTION
-            - Examine all surfaces for part numbers, manufacturer stamps, date codes
-            - Identify mounting points, connectors, and unique design features
-            - Note any visible text, logos, or markings
+            When I upload these {len(images)} images of an auto part, follow these steps precisely:
 
-            STEP 2: PART IDENTIFICATION  
-            - Determine the specific automotive component type
-            - Identify left/right orientation if applicable
-            - Assess condition and any damage
-
-            STEP 3: VEHICLE COMPATIBILITY
-            - Use part numbers and design features to determine exact fitment
-            - Establish make, model, and year range compatibility
-            - Cross-reference with known automotive databases
-
-            STEP 4: VALIDATION
-            - Verify part number against manufacturer databases
-            - Confirm year range accuracy
-            - Validate make/model compatibility
-
-            FEW-SHOT EXAMPLES (Learn from these patterns):
-
-            EXAMPLE 1 - Subaru Tail Light:
-            Image shows: Tail light assembly with visible part numbers
-            Analysis: Part number "84912AL00A" visible on back → Cross-reference shows 2010-2014 Subaru Legacy/Outback → Right passenger side based on mounting design
-            Result: "2010-2014 Subaru Legacy Outback Right Passenger Tail Light 84912AL00A OEM"
-
-            EXAMPLE 2 - Ford Headlight:
-            Image shows: Headlight assembly with Ford logo and part number
-            Analysis: Part number "FL3Z-13404-A" stamped on housing → Database lookup shows 2015-2020 Ford F-150 → Left driver side based on connector position
-            Result: "2015-2020 Ford F-150 Left Driver Headlight Assembly FL3Z-13404-A OEM"
-
-            EXAMPLE 3 - Honda Radio:
-            Image shows: Car stereo unit with Honda branding
-            Analysis: Part number "39100-TK8-A91" on label → Cross-reference shows 2014-2017 Honda Odyssey → OEM unit based on Honda logo
-            Result: "2014-2017 Honda Odyssey Radio Stereo Unit 39100-TK8-A91 OEM"
-            
-            CRITICAL REQUIREMENTS:
-            1. When you find a part number, use it to determine the EXACT FITMENT YEARS (e.g., 2009-2014, 2015-2020)
-            2. FITMENT YEARS are essential for eBay SEO - they must be the FIRST element in titles
-            3. Do NOT guess fitment years - only provide if you can determine from part number or clear visual evidence
-            4. If unsure about exact years, provide a reasonable range based on part number patterns
-
-            When I upload these {len(images)} images of the SAME automotive part, follow these steps precisely:
-
-            1. FITMENT ANALYSIS (MOST IMPORTANT):
-               - Determine the EXACT year range this part fits (e.g., 2009-2014, 2015-2020)
-               - Use part numbers to cross-reference fitment data
-               - Look for manufacturing dates, model generation indicators
-               - If part number is visible, determine fitment years from part number patterns
-
-            2. Identify the Auto Part:
+            1. Identify the Auto Part:
                Thoroughly analyze all images I provide.
-               Identify the automotive part, including:
-               - Exact part name and type
-               - Vehicle make, model, and year range it fits
-               - Part number (look carefully on all surfaces - back, sides, labels, stickers)
-               - Color and condition
-               - Whether it's OEM or aftermarket
-               - Any unique characteristics you can see
+               Identify the auto part, including its brand, type, style, color, and any other unique characteristics you can see. 
+               Also figure out the fitment data for this auto part - what make, model, and year range it fits.
+               Look carefully for part numbers on all surfaces - back, sides, labels, stickers.
 
-            3. Vehicle Compatibility:
-               Determine the specific vehicles this part fits:
-               - Make (Ford, Toyota, Honda, Subaru, etc.)
-               - Model (F-150, Camry, Civic, Outback, etc.)
-               - YEAR RANGE (e.g., 2009-2014) - CRITICAL FOR SEO
-               - Side if applicable (Left/Driver or Right/Passenger)
+            2. Provide Detailed Analysis:
+               Present your findings in JSON format with these exact keys:
+               {{
+                   "part_name": "specific part name with correct side if applicable",
+                   "make": "vehicle make (e.g., Subaru, Ford, Toyota)",
+                   "model": "vehicle model (e.g., Outback, F-150, Camry)", 
+                   "year_range": "YYYY-YYYY format (e.g., 2009-2014) based on fitment data",
+                   "part_numbers": "all visible part numbers found",
+                   "condition": "condition assessment based on images",
+                   "color": "part color if relevant",
+                   "is_oem": true/false,
+                   "ebay_title": "YYYY-YYYY Make Model Part Name PartNumber OEM format",
+                   "description": "detailed eBay listing description with fitment and condition",
+                   "confidence_score": "1-10 based on part number visibility and identification certainty"
+               }}
 
-            4. Provide Detailed Analysis:
-               Present your findings with:
-               - Complete part identification
-               - Exact vehicle compatibility with YEAR RANGE
-               - Part number if visible
-               - Condition assessment
-               - Estimated weight and dimensions for shipping
-               - Whether it's OEM or aftermarket
-
-            Respond in JSON format with these exact keys:
-            {{
-                "part_name": "specific part name with correct side",
-                "category": "category from options: {', '.join(self.part_categories[:5])}",
-                "condition": "condition assessment",
-                "vehicles": "exact make/model/years based on part number",
-                "year_range": "YYYY-YYYY format (e.g., 2009-2014) - REQUIRED for SEO titles",
-                "make": "vehicle make (e.g., Subaru, Ford, Toyota)",
-                "model": "vehicle model (e.g., Outback, F-150, Camry)",
-                "part_numbers": "all visible part numbers found",
-                "features": "key identifying features and validation notes",
-                "estimated_price": 0.00,
-                "weight_lbs": 0.0,
-                "dimensions_inches": "LxWxH format (e.g., 12x8x6)",
-                "shipping_class": "Small/Medium/Large based on size and weight",
-                "ebay_title": "YYYY-YYYY Make Model Part PartNumber Color OEM format",
-                "description": "detailed eBay listing description",
-                "compatibility": "specific fitment based on part number validation",
-                "color": "part color if relevant",
-                "is_oem": true/false,
-                "confidence_score": "1-10 based on part number visibility and cross-reference success",
-                "validation_notes": "explain how part number and design features confirm identification"
-            }}
-            
-            REMEMBER: The year_range field is CRITICAL for eBay SEO optimization and must be included whenever possible!
+            Focus on accuracy - if you can see part numbers, use them to determine exact fitment. If unsure about years, provide your best estimate based on the part design and any visible markings.
             """
             
-            # Use the latest vision-optimized model (as recommended by Gemini team)
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            # Use Gemini 2.5 Flash (same model user confirmed works accurately)
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
             
             # Configure generation settings optimized for desktop-level accuracy (per Gemini recommendations)
             generation_config = {
@@ -291,7 +214,7 @@ class PartIdentifier:
             
             # Generate response with config
             print(f"\n=== SENDING TO GEMINI ===")
-            print(f"Model: gemini-1.5-pro")
+            print(f"Model: gemini-2.0-flash-exp")
             print(f"Generation config: {generation_config}")
             print(f"Prompt length: {len(prompt)} characters")
             print(f"Images count: {len(images)}")
