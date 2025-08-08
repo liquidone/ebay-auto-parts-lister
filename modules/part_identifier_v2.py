@@ -477,7 +477,14 @@ Please be thorough and accurate, as this information will be used to create a re
             "confidence_score": 7
         }
         
-        # First, let's look for specific patterns in the response
+        # First, extract the Optimized Title if present
+        optimized_title_match = re.search(r'\*?\*?Optimized Title:\*?\*?\s*([^\n]+)', response_text, re.IGNORECASE)
+        if optimized_title_match:
+            optimized_title = optimized_title_match.group(1).strip().replace('**', '').replace('*', '')
+            # Remove quotes if present
+            optimized_title = optimized_title.strip('"').strip("'")
+            result["ebay_title"] = optimized_title[:80]  # eBay title limit
+        
         # Look for "PART TYPE:" or similar
         part_type_match = re.search(r'(?:PART TYPE|Part Type|IDENTIFICATION):\s*([^\n]+)', response_text, re.IGNORECASE)
         if part_type_match:
@@ -613,11 +620,13 @@ Please be thorough and accurate, as this information will be used to create a re
         if result.get("is_oem"):
             title_parts.append("OEM")
         
-        result["ebay_title"] = " ".join(title_parts)[:80].strip()  # eBay title limit
+        # Only build ebay_title if we didn't already extract the Optimized Title
+        if not result.get("ebay_title"):
+            result["ebay_title"] = " ".join(title_parts)[:80].strip()  # eBay title limit
         
-        # If no title was built, use the part name
-        if not result["ebay_title"]:
-            result["ebay_title"] = result["name"][:80] if result["name"] else "Auto Part"
+            # If no title was built, use the part name
+            if not result["ebay_title"]:
+                result["ebay_title"] = result["name"][:80] if result["name"] else "Auto Part"
         
         # Extract keywords for features
         if "Keywords" in response_text or "Suggested Keywords" in response_text:
