@@ -340,6 +340,12 @@ Please be thorough and accurate, as this information will be used to create a re
                     "data": base64.b64encode(img).decode()
                 })
             
+            # Debug: Check content structure before sending
+            print(f"DEBUG: Content type: {type(content)}, Length: {len(content)}")
+            print(f"DEBUG: First item type: {type(content[0])}")
+            if len(content) > 1:
+                print(f"DEBUG: Second item type: {type(content[1])}, Keys: {content[1].keys() if isinstance(content[1], dict) else 'Not a dict'}")
+            
             # Send to Gemini
             response = self.model.generate_content(content)
             response_text = response.text
