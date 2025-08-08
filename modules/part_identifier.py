@@ -19,9 +19,8 @@ except ImportError:
 
 class PartIdentifier:
     def __init__(self):
-        # Initialize Gemini client only - clean, simple architecture
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        
+        # Initialize AI client
+        gemini_key = os.getenv('GEMINI_API_KEY')
         if gemini_key:
             genai.configure(api_key=gemini_key)
             self.ai_client = "gemini"
@@ -30,7 +29,10 @@ class PartIdentifier:
         else:
             self.ai_client = None
             self.demo_mode = True
-            print("⚠️ Running in demo mode - no Gemini API key found")
+            print("⚠️ No Gemini API key found - running in demo mode")
+        
+        # Initialize debug tracking for raw API responses
+        self._debug_gemini_responses = []
         
         # Part categories for classification
         self.part_categories = [
@@ -132,6 +134,7 @@ class PartIdentifier:
                     'step2_fitment_raw': fitment_data,
                     'step3_analysis_raw': analysis.copy(),
                     'extracted_part_numbers': part_numbers_list,
+                    'raw_gemini_responses': getattr(self, '_debug_gemini_responses', []),
                     'workflow_steps': [
                         'Step 1: Hybrid OCR (Cloud Vision + Gemini)',
                         'Step 2: Part Number Fitment Lookup',
@@ -139,6 +142,9 @@ class PartIdentifier:
                         'Step 4: Pattern Validation (DISABLED)'
                     ]
                 }
+                
+                # Clear debug responses for next run
+                self._debug_gemini_responses = []
                 
                 print(f"🔍 DEBUG: Final analysis with debug output: {analysis.get('debug_output', {})}")
                 
@@ -723,8 +729,8 @@ Be extremely precise with year ranges. If unsure, indicate lower confidence rath
 Focus on OEM fitment data, not aftermarket compatibility.
 """
             
-            # Use Gemini for part number-based fitment lookup
-            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            # Use Gemini 2.5 Pro for part number-based fitment lookup (better accuracy)
+            model = genai.GenerativeModel('gemini-2.5-pro')
             generation_config = {
                 'temperature': 0.1,  # Low temperature for factual accuracy
                 'top_p': 0.8,
@@ -733,12 +739,23 @@ Focus on OEM fitment data, not aftermarket compatibility.
             }
             
             response = model.generate_content(fitment_prompt, generation_config=generation_config)
-            
+        
             if not response or not response.text:
                 raise Exception("Empty fitment response from Gemini")
             
+            # CAPTURE RAW GEMINI FITMENT RESPONSE FOR DEBUG
+            raw_response = response.text.strip()
+            self._debug_gemini_responses.append({
+                'step': 'Step 2 Fitment Lookup',
+                'prompt': fitment_prompt,
+                'raw_response': raw_response,
+                'part_number': primary_part_number,
+                'timestamp': datetime.now().isoformat()
+            })
+            print(f"🔍 DEBUG: Raw Gemini Fitment Response: {raw_response}")
+            
             # Parse JSON response
-            response_text = response.text.strip()
+            response_text = raw_response
             if response_text.startswith('```json'):
                 response_text = response_text[7:-3].strip()
             elif response_text.startswith('```'):
@@ -1378,50 +1395,60 @@ Be extremely careful with part number OCR - accuracy is critical.
             
             content = [prompt] + images
             response = model.generate_content(content, generation_config=generation_config)
-            
+        
             if not response or not response.text:
-                raise Exception("Empty OCR response from Gemini")
-            
-            # Parse JSON response
-            response_text = response.text.strip()
-            if response_text.startswith('```json'):
-                response_text = response_text[7:-3].strip()
-            elif response_text.startswith('```'):
-                response_text = response_text[3:-3].strip()
-            
-            try:
-                gemini_result = json.loads(response_text.strip())
-                print(f"🤖 Gemini OCR Results: {gemini_result}")
-            except json.JSONDecodeError as e:
-                print(f"Gemini OCR JSON parsing error: {e}")
-                gemini_result = {
-                    "visible_text": response_text,
-                    "part_numbers": "",
-                    "brand_names": "",
-                    "labels_and_markings": "",
-                    "ocr_confidence": 1
-                }
-            
-            # PHASE 3: Merge Cloud Vision + Gemini results for maximum accuracy
-            print(f"🔄 Phase 3: Merging Cloud Vision + Gemini OCR results")
-            merged_result = self._merge_ocr_results(cloud_vision_results, gemini_result)
-            
-            print(f"SUCCESS: HYBRID OCR COMPLETE:")
-            print(f"   📊 Cloud Vision: {len([r for r in cloud_vision_results if r.get('part_numbers')])} images with part numbers")
-            print(f"   🤖 Gemini: {len(gemini_result.get('part_numbers', '').split(',')) if gemini_result.get('part_numbers') else 0} part numbers")
-            print(f"   🔄 Merged: {len(merged_result.get('part_numbers', '').split(',')) if merged_result.get('part_numbers') else 0} final part numbers")
-            
-            return merged_result
-                
-        except Exception as e:
-            print(f"Step 1 OCR extraction error: {e}")
-            return {
-                "visible_text": "",
+            raise Exception("Empty OCR response from Gemini")
+        
+        # CAPTURE RAW GEMINI OCR RESPONSE FOR DEBUG
+        raw_response = response.text.strip()
+        self._debug_gemini_responses.append({
+            'step': 'Step 1 OCR',
+            'prompt': 'OCR text extraction from images',
+            'raw_response': raw_response,
+            'timestamp': datetime.now().isoformat()
+        })
+        print(f"🔍 DEBUG: Raw Gemini OCR Response: {raw_response}")
+        
+        # Parse JSON response
+        response_text = raw_response
+        if response_text.startswith('```json'):
+            response_text = response_text[7:-3].strip()
+        elif response_text.startswith('```'):
+            response_text = response_text[3:-3].strip()
+        
+        try:
+            gemini_result = json.loads(response_text.strip())
+            print(f"🤖 Gemini OCR Results: {gemini_result}")
+        except json.JSONDecodeError as e:
+            print(f"Gemini OCR JSON parsing error: {e}")
+            gemini_result = {
+                "visible_text": response_text,
                 "part_numbers": "",
                 "brand_names": "",
                 "labels_and_markings": "",
                 "ocr_confidence": 1
             }
+        
+        # PHASE 3: Merge Cloud Vision + Gemini results for maximum accuracy
+        print(f"🔄 Phase 3: Merging Cloud Vision + Gemini OCR results")
+        merged_result = self._merge_ocr_results(cloud_vision_results, gemini_result)
+        
+        print(f"SUCCESS: HYBRID OCR COMPLETE:")
+        print(f"   📊 Cloud Vision: {len([r for r in cloud_vision_results if r.get('part_numbers')])} images with part numbers")
+        print(f"   🤖 Gemini: {len(gemini_result.get('part_numbers', '').split(',')) if gemini_result.get('part_numbers') else 0} part numbers")
+        print(f"   🔄 Merged: {len(merged_result.get('part_numbers', '').split(',')) if merged_result.get('part_numbers') else 0} final part numbers")
+        
+        return merged_result
+                
+    except Exception as e:
+        print(f"Step 1 OCR extraction error: {e}")
+        return {
+            "visible_text": "",
+            "part_numbers": "",
+            "brand_names": "",
+            "labels_and_markings": "",
+            "ocr_confidence": 1
+        }
     
     async def _step2_validation_research(self, encoded_images: list, ocr_data: Dict, fitment_data: Dict = None) -> Dict:
         """
