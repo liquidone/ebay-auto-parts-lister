@@ -360,6 +360,16 @@ class PartIdentifier:
             print(f"Prompt length: {len(prompt)} characters")
             print(f"Images count: {len(images)}")
             
+            # CAPTURE RAW PROMPT FOR DEBUG PANEL
+            self._debug_gemini_responses.append({
+                "step": "Step 1: OCR Analysis",
+                "raw_prompt": prompt,
+                "model": "gemini-2.0-flash-exp",
+                "generation_config": generation_config,
+                "images_count": len(images),
+                "timestamp": datetime.now().isoformat()
+            })
+            
             response = model.generate_content(content, generation_config=generation_config)
             
             print(f"\n=== GEMINI RESPONSE ===")
@@ -367,6 +377,10 @@ class PartIdentifier:
             print(f"Full Gemini Response:")
             print(response.text)
             print(f"=== END GEMINI RESPONSE ===")
+            
+            # CAPTURE RAW RESPONSE FOR DEBUG PANEL
+            if self._debug_gemini_responses:
+                self._debug_gemini_responses[-1]["raw_response"] = response.text
             
             # Try to parse as JSON
             try:
@@ -489,9 +503,23 @@ class PartIdentifier:
             print(f"Context provided: Part={stage1_part_name}, Make={stage1_make}, Model={stage1_model}")
             print(f"=== SENDING TO GEMINI ===")
             
+            # CAPTURE RAW PROMPT FOR DEBUG PANEL
+            self._debug_gemini_responses.append({
+                "step": "Step 2: Comprehensive Fitment Extraction",
+                "raw_prompt": comprehensive_prompt,
+                "model": "gemini-2.0-flash-exp",
+                "generation_config": generation_config,
+                "images_count": len(images),
+                "timestamp": datetime.now().isoformat()
+            })
+            
             response = model.generate_content(content, generation_config=generation_config)
             
             print(f"Stage 2 Gemini Response: {response.text}")
+            
+            # CAPTURE RAW RESPONSE FOR DEBUG PANEL
+            if self._debug_gemini_responses:
+                self._debug_gemini_responses[-1]["raw_response"] = response.text
             
             # Parse JSON response
             response_text = response.text.strip()
@@ -603,6 +631,26 @@ class PartIdentifier:
             # Perform text detection
             response = client.text_detection(image=image)
             texts = response.text_annotations
+            
+            # CAPTURE RAW GOOGLE VISION API RESPONSE FOR DEBUG PANEL
+            vision_raw_response = {
+                "full_text": texts[0].description if texts else "",
+                "annotations_count": len(texts),
+                "error": response.error.message if response.error.message else None,
+                "language_hints": getattr(response, 'language_hints', None)
+            }
+            
+            # Store in debug responses
+            self._debug_gemini_responses.append({
+                "step": "Google Vision OCR",
+                "api": "Google Cloud Vision API",
+                "raw_request": {
+                    "image_size": len(processed_image_data),
+                    "method": "text_detection"
+                },
+                "raw_response": vision_raw_response,
+                "timestamp": datetime.now().isoformat()
+            })
             
             if response.error.message:
                 raise Exception(f"Cloud Vision API error: {response.error.message}")

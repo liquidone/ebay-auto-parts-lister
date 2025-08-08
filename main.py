@@ -685,13 +685,85 @@ async def root():
                     `;
                 }
                 
-                // Workflow Steps
-                if (debug.workflow_steps) {
+                // RAW API RESPONSES - GOOGLE VISION AND GEMINI
+                if (debug.raw_gemini_responses && debug.raw_gemini_responses.length > 0) {
                     debugHtml += `
-                        <div class="debug-section">
-                            <div class="debug-key">WORKFLOW STEPS</div>
+                        <div class="debug-section" style="border-left-color: #bd93f9;">
+                            <div class="debug-key" style="color: #bd93f9; font-size: 1.2em;">RAW API CALLS - GOOGLE VISION & GEMINI</div>
                             <div class="debug-value">
-                                ${debug.workflow_steps.map(step => `<div>• ${step}</div>`).join('')}
+                    `;
+                    
+                    debug.raw_gemini_responses.forEach((call, index) => {
+                        const isVisionAPI = call.api && call.api.includes('Vision');
+                        const borderColor = isVisionAPI ? '#f1fa8c' : '#bd93f9';
+                        const apiName = call.api || (call.model ? 'Google Gemini API' : 'Unknown API');
+                        
+                        debugHtml += `
+                            <div style="margin-bottom: 20px; padding: 10px; background: rgba(189, 147, 249, 0.1); border-left: 3px solid ${borderColor}; border-radius: 5px;">
+                                <div style="font-weight: bold; color: ${borderColor}; margin-bottom: 10px; font-size: 1.1em;">
+                                    ${call.step || `API Call ${index + 1}`}
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <span class="debug-key">API:</span> ${apiName}
+                                </div>
+                        `;
+                        
+                        // For Google Vision API
+                        if (isVisionAPI) {
+                            if (call.raw_request) {
+                                debugHtml += `
+                                    <div style="margin-bottom: 10px;">
+                                        <span class="debug-key">Request Method:</span> ${call.raw_request.method || 'N/A'}
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <span class="debug-key">Image Size:</span> ${call.raw_request.image_size || 0} bytes
+                                    </div>
+                                `;
+                            }
+                            
+                            debugHtml += `
+                                <div>
+                                    <div class="debug-key" style="color: #f1fa8c;">RAW GOOGLE VISION RESPONSE:</div>
+                                    <pre style="background: #1e1e1e; padding: 10px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; max-height: 300px; overflow-y: auto;">${JSON.stringify(call.raw_response, null, 2)}</pre>
+                                </div>
+                            `;
+                        }
+                        // For Gemini API
+                        else {
+                            if (call.model) {
+                                debugHtml += `
+                                    <div style="margin-bottom: 10px;">
+                                        <span class="debug-key">Model:</span> ${call.model}
+                                    </div>
+                                `;
+                            }
+                            
+                            if (call.images_count !== undefined) {
+                                debugHtml += `
+                                    <div style="margin-bottom: 10px;">
+                                        <span class="debug-key">Images Count:</span> ${call.images_count}
+                                    </div>
+                                `;
+                            }
+                            
+                            debugHtml += `
+                                <div style="margin-bottom: 10px;">
+                                    <div class="debug-key" style="color: #50fa7b;">RAW PROMPT SENT TO GEMINI:</div>
+                                    <pre style="background: #1e1e1e; padding: 10px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; max-height: 300px; overflow-y: auto;">${call.raw_prompt || call.prompt || 'No prompt captured'}</pre>
+                                </div>
+                                <div>
+                                    <div class="debug-key" style="color: #ff79c6;">RAW RESPONSE FROM GEMINI:</div>
+                                    <pre style="background: #1e1e1e; padding: 10px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; max-height: 300px; overflow-y: auto;">${call.raw_response || 'No response captured'}</pre>
+                                </div>
+                            `;
+                        }
+                        
+                        debugHtml += `
+                            </div>
+                        `;
+                    });
+                    
+                    debugHtml += `
                             </div>
                         </div>
                     `;
