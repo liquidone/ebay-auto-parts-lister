@@ -48,6 +48,25 @@ venv.bak/
 ._*
 .Spotlight-V100
 .Trashes
+
+# Large files that can cause git stalling
+static/processed/
+uploads/
+*.jpg
+*.png
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
 ehthumbs.db
 Thumbs.db
 
