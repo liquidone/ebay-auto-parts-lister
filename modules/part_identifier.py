@@ -74,7 +74,38 @@ class PartIdentifier:
         """Use AI to analyze multiple images of the same auto part"""
         try:
             if self.ai_client == "gemini":
-                return await self._analyze_with_gemini(encoded_images)
+                # MULTI-STEP WORKFLOW: Following Gemini's desktop methodology
+                # Step 1: Pure OCR, Step 2: Validation & Research, Step 3: External validation
+                analysis = await self._analyze_with_gemini(encoded_images)
+                
+                # Continue with existing Stage 2 and Stage 3 processing
+                # STAGE 2: If Make/Model/Year are missing or generic, run focused extraction
+                if self._needs_fitment_extraction(analysis):
+                    print(f"\n=== STAGE 2: FOCUSED FITMENT EXTRACTION ===")
+                    enhanced_analysis = await self._extract_fitment_data(encoded_images, analysis)
+                    if enhanced_analysis:
+                        analysis.update(enhanced_analysis)
+                        print(f"✅ Enhanced with fitment data: {enhanced_analysis.get('make', 'N/A')} {enhanced_analysis.get('model', 'N/A')} {enhanced_analysis.get('year_range', 'N/A')}")
+                    else:
+                        print(f"❌ Stage 2 fitment extraction failed")
+                    print(f"=== END STAGE 2 ===\n")
+                
+                # STAGE 3: External validation layer (Gemini's recommendation)
+                part_numbers_list = []
+                if analysis.get('part_numbers'):
+                    part_numbers_list = [pn.strip() for pn in analysis['part_numbers'].split(',') if pn.strip()]
+                
+                if part_numbers_list:
+                    validation_results = await self._validate_part_numbers_externally(part_numbers_list)
+                    analysis = await self._enhanced_post_processing(analysis, validation_results)
+                else:
+                    print("No part numbers found for external validation")
+                
+                # POST-PROCESSING: Traditional database validation (fallback)
+                analysis = await self._validate_part_identification(analysis)
+                
+                return analysis
+                
             elif self.ai_client == "openai":
                 return await self._analyze_with_openai(encoded_images)
             else:
@@ -240,32 +271,6 @@ class PartIdentifier:
                     response_text = response_text.split("```")[1]
                 
                 analysis = json.loads(response_text.strip())
-                
-                # STAGE 2: If Make/Model/Year are missing or generic, run focused extraction
-                if self._needs_fitment_extraction(analysis):
-                    print(f"\n=== STAGE 2: FOCUSED FITMENT EXTRACTION ===")
-                    enhanced_analysis = await self._extract_fitment_data(images, analysis)
-                    if enhanced_analysis:
-                        analysis.update(enhanced_analysis)
-                        print(f"✅ Enhanced with fitment data: {enhanced_analysis.get('make', 'N/A')} {enhanced_analysis.get('model', 'N/A')} {enhanced_analysis.get('year_range', 'N/A')}")
-                    else:
-                        print(f"❌ Stage 2 fitment extraction failed")
-                    print(f"=== END STAGE 2 ===\n")
-                
-                # STAGE 3: External validation layer (Gemini's recommendation)
-                part_numbers_list = []
-                if analysis.get('part_numbers'):
-                    part_numbers_list = [pn.strip() for pn in analysis['part_numbers'].split(',') if pn.strip()]
-                
-                if part_numbers_list:
-                    validation_results = await self._validate_part_numbers_externally(part_numbers_list)
-                    analysis = await self._enhanced_post_processing(analysis, validation_results)
-                else:
-                    print("No part numbers found for external validation")
-                
-                # POST-PROCESSING: Traditional database validation (fallback)
-                analysis = await self._validate_part_identification(analysis)
-                
                 return analysis
                 
             except json.JSONDecodeError:
@@ -366,7 +371,7 @@ class PartIdentifier:
                 "temperature": 0.1,
                 "top_p": 0.8,
                 "top_k": 40,
-                "max_output_tokens": 2048,  # Allow detailed response
+                "max_output_tokens": 2048,
                 "candidate_count": 1,
             }
             
