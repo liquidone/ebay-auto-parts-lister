@@ -630,7 +630,7 @@ Please be thorough and accurate, as this information will be used to create a re
         description_parts = [
             f"**{result['name']}**",
             "",
-{{ ... }}
+            result.get('description', '')
         ]
         
         if result["part_numbers"]:
