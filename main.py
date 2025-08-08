@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from modules.image_processor_simple import ImageProcessor
-from modules.part_identifier import PartIdentifier
+from modules.part_identifier_v2 import PartIdentifier
 from modules.feature_flags import feature_flags, is_enhanced_ui_enabled
 from modules.database import Database
 from modules.ebay_api import eBayAPI
@@ -607,75 +607,78 @@ async def root():
                 if (debug.api_status) {
                     const status = debug.api_status;
                     const statusColor = status.demo_mode ? '#ff6b6b' : '#50fa7b';
+                    const visionColor = status.vision_api_configured ? '#50fa7b' : '#ff6b6b';
+                    const geminiColor = status.gemini_api_configured ? '#50fa7b' : '#ff6b6b';
                     debugHtml += `
                         <div class="debug-section" style="border-left-color: ${statusColor};">
                             <div class="debug-key">API STATUS</div>
                             <div class="debug-value">
                                 <div><span class="debug-key">Mode:</span> <span style="color: ${statusColor};">${status.demo_mode ? 'DEMO MODE' : 'LIVE API'}</span></div>
-                                <div><span class="debug-key">API Client:</span> ${status.api_client || 'None'}</div>
-                                <div><span class="debug-key">API Key Configured:</span> ${status.api_key_configured ? 'Yes' : 'No'}</div>
+                                <div><span class="debug-key">Vision API:</span> <span style="color: ${visionColor};">${status.vision_api_configured ? 'Configured' : 'Not Configured'}</span></div>
+                                <div><span class="debug-key">Gemini API:</span> <span style="color: ${geminiColor};">${status.gemini_api_configured ? 'Configured' : 'Not Configured'}</span></div>
                             </div>
                         </div>
                     `;
                 }
                 
-                // Step 1: OCR Raw Data
-                if (debug.step1_ocr_raw) {
+                // Step 1: Google Vision OCR
+                if (debug.step1_vision_ocr) {
+                    const ocr = debug.step1_vision_ocr;
                     debugHtml += `
-                        <div class="debug-section">
-                            <div class="debug-key">STEP 1: OCR Raw Data</div>
+                        <div class="debug-section" style="border-left-color: #f1fa8c;">
+                            <div class="debug-key" style="color: #f1fa8c;">STEP 1: Google Vision OCR</div>
                             <div class="debug-value">
-                                <div><span class="debug-key">Part Numbers:</span> ${JSON.stringify(debug.extracted_part_numbers || [])}</div>
-                                <div><span class="debug-key">OCR Text:</span> ${debug.step1_ocr_raw.raw_text || 'N/A'}</div>
-                                <div><span class="debug-key">Confidence:</span> ${debug.step1_ocr_raw.confidence_score || 'N/A'}</div>
-                                <div><span class="debug-key">Cloud Vision:</span> ${debug.step1_ocr_raw.cloud_vision_text ? 'Available' : 'Not Available'}</div>
-                                <div><span class="debug-key">Gemini OCR:</span> ${debug.step1_ocr_raw.gemini_ocr_text ? 'Available' : 'Not Available'}</div>
+                                <div><span class="debug-key">Images Processed:</span> ${ocr.images_processed || 0}</div>
+                                <div><span class="debug-key">OCR Success Count:</span> ${ocr.ocr_success_count || 0}</div>
+                                <div><span class="debug-key">Extracted Part Numbers:</span> ${JSON.stringify(debug.extracted_part_numbers || [])}</div>
+                                <div><span class="debug-key">Combined OCR Text:</span></div>
+                                <pre style="background: #2a2a2a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 150px; overflow-y: auto;">${ocr.combined_text || 'No text extracted'}</pre>
                             </div>
                         </div>
                     `;
                 }
                 
-                // Step 2: Raw Gemini Fitment Prompt and Response
-                if (debug.raw_gemini_responses && debug.raw_gemini_responses.length > 0) {
-                    const fitmentResponse = debug.raw_gemini_responses.find(r => r.step === 'Step 2 Fitment Lookup');
-                    if (fitmentResponse) {
-                        debugHtml += `
-                            <div class="debug-section">
-                                <div class="debug-key">STEP 2: Fitment Lookup Raw</div>
-                                <div class="debug-value">
-                                    <div><span class="debug-key">Part Number:</span> ${fitmentResponse.part_number || 'N/A'}</div>
-                                    <div><span class="debug-key">Gemini 2.5 Pro Prompt:</span></div>
-                                    <pre style="background: #2a2a2a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px;">${fitmentResponse.prompt || 'N/A'}</pre>
-                                    <div><span class="debug-key">Raw Gemini Response:</span></div>
-                                    <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 12px; color: #4CAF50;">${fitmentResponse.raw_response || 'N/A'}</pre>
-                                    <div><span class="debug-key">Timestamp:</span> ${fitmentResponse.timestamp || 'N/A'}</div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-                
-                // Step 2: Fitment Results Summary
-                if (debug.step2_fitment_raw) {
+                // Step 2: Dynamic Prompt Construction
+                if (debug.step2_dynamic_prompt) {
+                    const prompt = debug.step2_dynamic_prompt;
+                    const scenarioColor = prompt.scenario === 'A' ? '#50fa7b' : (prompt.scenario === 'B' ? '#f1fa8c' : '#ff79c6');
                     debugHtml += `
-                        <div class="debug-section">
-                            <div class="debug-key">STEP 2: Fitment Results Summary</div>
+                        <div class="debug-section" style="border-left-color: #8be9fd;">
+                            <div class="debug-key" style="color: #8be9fd;">STEP 2: Dynamic Prompt Construction</div>
                             <div class="debug-value">
-                                <div><span class="debug-key">Make:</span> ${debug.step2_fitment_raw.make || 'N/A'}</div>
-                                <div><span class="debug-key">Model:</span> ${debug.step2_fitment_raw.model || 'N/A'}</div>
-                                <div><span class="debug-key">Year Range:</span> ${debug.step2_fitment_raw.year_range || 'N/A'}</div>
-                                <div><span class="debug-key">Part Description:</span> ${debug.step2_fitment_raw.part_description || 'N/A'}</div>
-                                <div><span class="debug-key">Confidence:</span> ${debug.step2_fitment_raw.confidence || 'N/A'}</div>
+                                <div><span class="debug-key">Scenario:</span> <span style="color: ${scenarioColor};">${prompt.scenario || 'N/A'} ${prompt.scenario === 'A' ? '(OCR found part numbers)' : prompt.scenario === 'B' ? '(OCR found text, no clear part numbers)' : '(No OCR results)'}</span></div>
+                                <div><span class="debug-key">Part Numbers Found:</span> ${prompt.part_numbers_found || 0}</div>
+                                <div><span class="debug-key">Prompt Length:</span> ${prompt.full_prompt_length || 0} characters</div>
+                                <div><span class="debug-key">Prompt Preview:</span></div>
+                                <pre style="background: #2a2a2a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 150px; overflow-y: auto;">${prompt.prompt_preview || 'N/A'}</pre>
                             </div>
                         </div>
                     `;
                 }
                 
-                // Step 3: Final Analysis
+                // Step 3: Gemini Analysis Results
+                if (debug.step3_gemini_analysis) {
+                    const analysis = debug.step3_gemini_analysis;
+                    debugHtml += `
+                        <div class="debug-section" style="border-left-color: #50fa7b;">
+                            <div class="debug-key" style="color: #50fa7b;">STEP 3: Gemini 2.5 Pro Analysis</div>
+                            <div class="debug-value">
+                                <div><span class="debug-key">Part Name:</span> ${analysis.part_name || 'N/A'}</div>
+                                <div><span class="debug-key">Part Numbers:</span> ${JSON.stringify(analysis.part_numbers || [])}</div>
+                                <div><span class="debug-key">Make/Model:</span> ${analysis.make || 'N/A'} ${analysis.model || 'N/A'}</div>
+                                <div><span class="debug-key">Year Range:</span> ${analysis.year_range || 'N/A'}</div>
+                                <div><span class="debug-key">Condition:</span> ${analysis.condition || 'N/A'}</div>
+                                <div><span class="debug-key">Price Range:</span> ${analysis.price_range || 'N/A'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Legacy compatibility - map old fields if present
                 if (debug.step3_analysis_raw) {
                     debugHtml += `
                         <div class="debug-section">
-                            <div class="debug-key">STEP 3: Final Analysis</div>
+                            <div class="debug-key">STEP 3: Final Analysis (Legacy)</div>
                             <div class="debug-value">
                                 <div><span class="debug-key">Part Name:</span> ${debug.step3_analysis_raw.part_name || 'N/A'}</div>
                                 <div><span class="debug-key">Vehicle Make:</span> ${debug.step3_analysis_raw.vehicle_make || 'N/A'}</div>
