@@ -1160,7 +1160,10 @@ async def process_images(files: list[UploadFile] = File(...)):
         return result
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         print(f"Error identifying part from multiple images: {str(e)}")
+        print(f"Full traceback:\n{error_details}")
         return {"error": f"Failed to identify part: {str(e)}"}
 
 @app.get("/test-ebay-connection")
