@@ -167,7 +167,7 @@ class PartIdentifier:
                 # Add debug output for error cases
                 "debug_output": {
                     "step1_ocr_raw": {
-                        "raw_text": f"ERROR: {str(e)}",
+                        "raw_text": "ERROR: " + str(e),
                         "confidence_score": "Error",
                         "cloud_vision_text": "Analysis failed",
                         "gemini_ocr_text": "Analysis failed"
@@ -176,7 +176,7 @@ class PartIdentifier:
                         "make": "Error",
                         "model": "Error",
                         "year_range": "Error",
-                        "part_description": f"Analysis failed: {str(e)}",
+                        "part_description": "Analysis failed: " + str(e),
                         "confidence": "Error"
                     },
                     "step3_analysis_raw": {
@@ -191,13 +191,13 @@ class PartIdentifier:
                         {
                             "step": "Error",
                             "prompt": "Analysis failed before API call",
-                            "raw_response": f"Error occurred: {str(e)}",
+                            "raw_response": "Error occurred: " + str(e),
                             "timestamp": datetime.now().isoformat()
                         }
                     ],
                     "workflow_steps": [
                         "Step 1: Analysis failed",
-                        f"Error: {str(e)}",
+                        "Error: " + str(e),
                         "Check API configuration and try again"
                     ]
                 },
