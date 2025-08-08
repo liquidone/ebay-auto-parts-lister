@@ -601,6 +601,22 @@ async def root():
                 console.log('Debug data structure:', debug);
                 let debugHtml = '';
                 
+                // API Status Section (NEW)
+                if (debug.api_status) {
+                    const status = debug.api_status;
+                    const statusColor = status.demo_mode ? '#ff6b6b' : '#50fa7b';
+                    debugHtml += `
+                        <div class="debug-section" style="border-left-color: ${statusColor};">
+                            <div class="debug-key">API STATUS</div>
+                            <div class="debug-value">
+                                <div><span class="debug-key">Mode:</span> <span style="color: ${statusColor};">${status.demo_mode ? 'DEMO MODE' : 'LIVE API'}</span></div>
+                                <div><span class="debug-key">API Client:</span> ${status.api_client || 'None'}</div>
+                                <div><span class="debug-key">API Key Configured:</span> ${status.api_key_configured ? 'Yes' : 'No'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
                 // Step 1: OCR Raw Data
                 if (debug.step1_ocr_raw) {
                     debugHtml += `

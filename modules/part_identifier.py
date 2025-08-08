@@ -22,8 +22,11 @@ class PartIdentifier:
         # Initialize Gemini client only - clean, simple architecture
         gemini_key = os.getenv("GEMINI_API_KEY")
         
-        print(f"🔍 DEBUG: PartIdentifier.__init__ called")
-        print(f"🔍 DEBUG: GEMINI_API_KEY environment variable: {'SET (hidden)' if gemini_key else 'NOT SET'}")
+        print(f"DEBUG: PartIdentifier.__init__ called")
+        print(f"DEBUG: GEMINI_API_KEY environment variable: {'SET (hidden)' if gemini_key else 'NOT SET'}")
+        
+        # Force clear initialization of debug responses
+        self._debug_gemini_responses = []
         
         if gemini_key:
             genai.configure(api_key=gemini_key)
@@ -31,11 +34,14 @@ class PartIdentifier:
             self.demo_mode = False
             print("✅ SUCCESS: Using Google Gemini for AI analysis")
             print(f"✅ DEBUG: API key length: {len(gemini_key)} characters")
+            print(f"✅ DEBUG: API key first 10 chars: {gemini_key[:10]}...")
         else:
             self.ai_client = None
             self.demo_mode = True
             print("⚠️ WARNING: Running in demo mode - no Gemini API key found")
             print("⚠️ To enable real analysis, set GEMINI_API_KEY environment variable")
+            print("⚠️ DEBUG: Current working directory:", os.getcwd())
+            print("⚠️ DEBUG: .env file exists:", os.path.exists('.env'))
         
         # Initialize debug tracking for raw Gemini prompts and responses
         self._debug_gemini_responses = []
@@ -144,20 +150,28 @@ class PartIdentifier:
                 
                 # Add comprehensive debug output for UI inspection
                 analysis['debug_output'] = {
-                    'step1_ocr_raw': ocr_analysis,
-                    'step2_fitment_raw': fitment_data,
+                    'step1_ocr_raw': ocr_analysis if ocr_analysis else {'raw_text': 'No OCR data available', 'confidence_score': 0},
+                    'step2_fitment_raw': fitment_data if fitment_data else {'make': 'Unknown', 'model': 'Unknown', 'year_range': 'Unknown'},
                     'step3_analysis_raw': analysis.copy(),
-                    'extracted_part_numbers': part_numbers_list,
-                    'raw_gemini_responses': self._debug_gemini_responses,  # RAW PROMPTS AND RESPONSES
+                    'extracted_part_numbers': part_numbers_list if part_numbers_list else ['No part numbers found'],
+                    'raw_gemini_responses': self._debug_gemini_responses if self._debug_gemini_responses else [{'step': 'No API calls made', 'raw_response': 'Check API configuration'}],
                     'workflow_steps': [
-                        'Step 1: Hybrid OCR (Cloud Vision + Gemini)',
-                        'Step 2: Part Number Fitment Lookup',
-                        'Step 3: Context & Description Generation',
-                        'Step 4: Pattern Validation (DISABLED)'
-                    ]
+                        f'Step 1: Hybrid OCR (Cloud Vision + Gemini) - {"Completed" if ocr_analysis else "Failed"}',
+                        f'Step 2: Part Number Fitment Lookup - {"Completed" if fitment_data else "Failed"}',
+                        f'Step 3: Context & Description Generation - {"Completed" if analysis else "Failed"}',
+                        f'Step 4: Pattern Validation (DISABLED)',
+                        f'API Mode: {"Gemini API Active" if not self.demo_mode else "DEMO MODE - No API Key"}'
+                    ],
+                    'api_status': {
+                        'demo_mode': self.demo_mode,
+                        'api_client': self.ai_client or 'None',
+                        'api_key_configured': bool(os.getenv("GEMINI_API_KEY"))
+                    }
                 }
                 
-                print(f"🔍 DEBUG: Final analysis with debug output: {analysis.get('debug_output', {})}")
+                print(f"🔍 DEBUG: Final analysis with debug output created")
+                print(f"🔍 DEBUG: Demo mode: {self.demo_mode}")
+                print(f"🔍 DEBUG: Number of Gemini responses captured: {len(self._debug_gemini_responses)}")
                 
                 print(f"\nSUCCESS: WORKFLOW COMPLETE - Version: v3.1-Debug-Output")
                 return analysis
