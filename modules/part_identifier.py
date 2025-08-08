@@ -33,7 +33,7 @@ class PartIdentifier:
         
         if gemini_key:
             genai.configure(api_key=gemini_key)
-            self.model = genai.GenerativeModel('gemini-1.5-pro')  # Using Gemini 2.5 Pro
+            self.model = genai.GenerativeModel('gemini-2.5-pro')  # Using Gemini 2.5 Pro
             self.demo_mode = False
             print("✅ Using Google Gemini 2.5 Pro for AI analysis")
         else:
