@@ -1,9 +1,18 @@
 import os
 import json
 import base64
-from typing import Dict, List, Optional
+import re
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import google.generativeai as genai
+
+# Try to import Google Cloud Vision
+try:
+    from google.cloud import vision
+    VISION_AVAILABLE = True
+except ImportError:
+    VISION_AVAILABLE = False
+    print("WARNING: google-cloud-vision not available, Vision OCR will be disabled")
 
 # Try to load .env file if dotenv is available
 try:
@@ -15,8 +24,18 @@ except ImportError:
 
 class PartIdentifier:
     def __init__(self):
-        """Initialize the Part Identifier with Gemini 2.5 Pro"""
+        """Initialize the Part Identifier with Gemini 2.5 Pro and Google Vision OCR"""
         gemini_key = os.getenv("GEMINI_API_KEY")
+        
+        # Initialize Vision client for OCR
+        self.vision_client = None
+        if VISION_AVAILABLE:
+            try:
+                self.vision_client = vision.ImageAnnotatorClient()
+                print("Google Vision API initialized for OCR")
+            except Exception as e:
+                print(f"WARNING: Could not initialize Vision API: {e}")
+                self.vision_client = None
         
         print(f"DEBUG: PartIdentifier.__init__ called")
         print(f"DEBUG: GEMINI_API_KEY: {'SET' if gemini_key else 'NOT SET'}")
@@ -48,6 +67,77 @@ class PartIdentifier:
             "extracted_part_numbers": []
         }
 
+    def _extract_vin_from_text(self, text: str) -> Optional[str]:
+        """Extract VIN number from text using regex pattern"""
+        # VIN pattern: 17 alphanumeric characters, excluding I, O, Q
+        # Common VIN format: [A-HJ-NPR-Z0-9]{17}
+        vin_pattern = r'\b[A-HJ-NPR-Z0-9]{17}\b'
+        
+        # Find all potential VINs
+        matches = re.findall(vin_pattern, text.upper())
+        
+        if matches:
+            # Return the first valid VIN found
+            return matches[0]
+        return None
+    
+    def _perform_ocr_on_images(self, image_paths: List[str]) -> Tuple[List[str], str, Optional[str]]:
+        """Perform OCR on images to extract part numbers and VIN"""
+        all_text = ""
+        part_numbers = []
+        vin_number = None
+        
+        if not self.vision_client:
+            print("Vision API not available, skipping OCR")
+            return [], "", None
+        
+        for image_path in image_paths:
+            try:
+                with open(image_path, 'rb') as image_file:
+                    content = image_file.read()
+                
+                image = vision.Image(content=content)
+                response = self.vision_client.text_detection(image=image)
+                texts = response.text_annotations
+                
+                if texts:
+                    # First annotation contains all text
+                    full_text = texts[0].description
+                    all_text += full_text + " "
+                    
+                    # Extract VIN if not already found
+                    if not vin_number:
+                        vin_number = self._extract_vin_from_text(full_text)
+                        if vin_number:
+                            print(f"VIN detected: {vin_number}")
+                    
+                    # Extract part numbers (common patterns)
+                    # Look for patterns like: XXXXX-XXXXX, XXXX-XXX-XXX, etc.
+                    part_patterns = [
+                        r'\b[A-Z0-9]{5}-[A-Z0-9]{5}\b',  # Toyota/Lexus style
+                        r'\b[A-Z0-9]{4}-[A-Z0-9]{3}-[A-Z0-9]{3}\b',  # Honda style
+                        r'\b[A-Z0-9]{2}[A-Z0-9]{3}-[A-Z0-9]{5}\b',  # Ford style
+                        r'\b[0-9]{8}\b',  # GM 8-digit
+                        r'\b[A-Z0-9]{6,10}\b'  # Generic 6-10 character
+                    ]
+                    
+                    for pattern in part_patterns:
+                        found = re.findall(pattern, full_text.upper())
+                        part_numbers.extend(found)
+                        
+            except Exception as e:
+                print(f"Error performing OCR on {image_path}: {e}")
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_parts = []
+        for num in part_numbers:
+            if num not in seen and num != vin_number:  # Don't include VIN as part number
+                seen.add(num)
+                unique_parts.append(num)
+        
+        return unique_parts[:10], all_text[:500], vin_number  # Limit to top 10 part numbers
+    
     def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
         """
         Identify auto part from multiple images using a SINGLE Gemini API call
@@ -99,70 +189,84 @@ class PartIdentifier:
         """
         self.debug_output["workflow_steps"].append("Single comprehensive analysis started")
         
-        # Comprehensive prompt that combines all 3 steps
-        prompt = """You are an expert eBay reseller specializing in auto parts. 
-Analyze these images and provide a COMPLETE analysis in ONE response.
+        # Perform OCR on images first
+        part_numbers, ocr_text, vin_number = self._perform_ocr_on_images(image_paths)
+        
+        # Determine scenario based on OCR results
+        if part_numbers:
+            scenario = "A"
+            ocr_info = f"OCR Results: {', '.join(part_numbers)}"
+        elif ocr_text.strip():
+            scenario = "B"
+            ocr_info = f"OCR Text Found: {ocr_text}"
+        else:
+            scenario = "C"
+            ocr_info = ""
+        
+        # Build dynamic prompt based on OCR results
+        prompt = """You are an expert eBay reseller specializing in used auto parts. Your goal is to provide all the necessary information for me to create a profitable eBay listing quickly.
 
-COMPREHENSIVE AUTO PART ANALYSIS:
+I have attached multiple images of a single auto part. It is critical that you analyze ALL of them to get a complete understanding of the part and its condition.
 
-1. IDENTIFICATION:
-   - Part type (be specific: headlight, tail light, brake caliper, etc.)
-   - Brand/Manufacturer
-   - ALL visible part numbers (transcribe accurately)
-   - Physical characteristics (color, style, size, mounting)
-   - Condition assessment
+--- SCENARIO THAT APPLIES ---
 
-2. FITMENT RESEARCH:
-   - Make/Model/Year range this part fits
-   - Verify part numbers against known databases
-   - List compatible vehicles
-   - OEM vs Aftermarket status
+"""
+        
+        if scenario == "A":
+            prompt += f"""**SCENARIO A: I have images AND a list of possible part numbers from an OCR scan.**
+My OCR scan returned the following potential numbers. Please verify which of these are correct by cross-referencing all images, identify the primary part number, and use it for your research.
+{ocr_info}
+"""
+        elif scenario == "B":
+            prompt += f"""**SCENARIO B: I have images, but OCR found NO part numbers.**
+My OCR scan did not return any usable numbers. Your task will be to identify the part based on its visual characteristics across all images.
+{ocr_info}
+"""
+        else:
+            prompt += """**SCENARIO C: I am only providing images.**
+Please analyze the images from scratch.
+"""
+        
+        # Add VIN information if available
+        if vin_number:
+            prompt += f"""
+--- VIN PROVIDED ---
+**VIN from the vehicle the part was removed from: {vin_number}**
+This will dramatically improve fitment accuracy. Use this VIN as the primary source of truth for the source vehicle's identity.
+"""
+        else:
+            prompt += """
+--- NO VIN AVAILABLE ---
+**No VIN was detected in the images.**
+"""
+        
+        # Add the task section
+        prompt += """
+--- YOUR TASK ---
 
-3. MARKET ANALYSIS:
-   - Research eBay sold listings for this part
-   - Determine market price range
-   - Suggest optimal Buy It Now price
-   - Quick sale price (for fast turnover)
-   - Average market price
+Based on a THOROUGH review of ALL images and the information I've provided, perform the following steps:
 
-4. EBAY LISTING:
-   - SEO-optimized title (max 80 chars)
-   - Professional description
-   - Key selling points
-   - Recommended category
+**STEP 1: VISUAL ANALYSIS & IDENTIFICATION**
+1.  **Part Type:** What specific type of auto part is this?
+2.  **Part Numbers:**
+    * For Scenario A: Confirm which of the provided numbers are accurate and visible. Identify the primary OEM part number.
+    * For Scenarios B & C: Transcribe ALL visible part numbers. **(If a VIN was provided, you can use it to help verify the correct part number for that specific vehicle).** If none, state "No part number visible."
+3.  **Brand/Manufacturer:** Identify any visible brands.
+4.  **Condition:** Synthesize the part's overall condition from ALL images. Note any scratches, broken tabs, cracked lenses, rust, or missing components visible across ANY of the photos.
 
-CRITICAL DISTINCTIONS:
-- Headlight vs Tail light (headlights are clear/white, tail lights are red/amber)
-- Left vs Right side
-- OEM vs Aftermarket
+**STEP 2: FITMENT & COMPATIBILITY RESEARCH**
+1.  **Vehicle Fitment:**
+    * **If a VIN was provided, use it as the primary source of truth for the source vehicle's identity (Year, Make, Model, and Trim).**
+    * Using the primary part number (if available), list all vehicle Makes, Models, and Year range(s) this part fits.
+2.  **Compatibility Notes:** Mention any important details (e.g., "Fits Halogen models only," "For vehicles with 2.4L engine").
 
-FORMAT YOUR RESPONSE EXACTLY AS:
+**STEP 3: PRICING & MARKET ANALYSIS**
+1.  **Price Range:** Provide a suggested "Buy It Now" price range for this part in its current condition on eBay.
+2.  **Competitive Listings (Comps):** Provide 2-3 links to current or recently sold eBay listings.
 
-PART IDENTIFICATION:
-Part Type: [specific type]
-Brand: [manufacturer]
-Part Numbers: [all numbers]
-Condition: [condition]
-Characteristics: [details]
-
-FITMENT DATA:
-Make: [make]
-Model: [model]
-Year Range: [years]
-Compatible Vehicles: [list]
-OEM/Aftermarket: [status]
-
-MARKET ANALYSIS:
-Market Price Range: $[low] - $[high]
-Average Sold Price: $[average]
-Suggested Buy It Now: $[price]
-Quick Sale Price: $[price]
-
-EBAY LISTING:
-Title: [SEO title]
-Category: [eBay category]
-Description: [professional description]
-Key Features: [bullet points]"""
+**STEP 4: EBAY LISTING OPTIMIZATION**
+1.  **Optimized Title:** Generate a keyword-rich eBay title. If the part number is confirmed, include it.
+2.  **Suggested Keywords:** List 5-10 additional keywords a buyer might use."""
 
         try:
             # Prepare content with images
