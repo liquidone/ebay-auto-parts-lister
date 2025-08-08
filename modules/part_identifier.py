@@ -238,6 +238,17 @@ class PartIdentifier:
                 
                 analysis = json.loads(response_text.strip())
                 
+                # STAGE 2: If Make/Model/Year are missing or generic, run focused extraction
+                if self._needs_fitment_extraction(analysis):
+                    print(f"\n=== STAGE 2: FOCUSED FITMENT EXTRACTION ===")
+                    enhanced_analysis = await self._extract_fitment_data(images, analysis)
+                    if enhanced_analysis:
+                        analysis.update(enhanced_analysis)
+                        print(f"✅ Enhanced with fitment data: {enhanced_analysis.get('make', 'N/A')} {enhanced_analysis.get('model', 'N/A')} {enhanced_analysis.get('year_range', 'N/A')}")
+                    else:
+                        print(f"❌ Stage 2 fitment extraction failed")
+                    print(f"=== END STAGE 2 ===\n")
+                
                 # POST-PROCESSING: Validate part number against database
                 analysis = await self._validate_part_identification(analysis)
                 
@@ -250,6 +261,156 @@ class PartIdentifier:
         except Exception as e:
             print(f"Error in Gemini analysis: {str(e)}")
             raise e
+    
+    def _needs_fitment_extraction(self, analysis: Dict) -> bool:
+        """Check if any critical SEO elements are missing and need comprehensive extraction"""
+        make = analysis.get('make', '').strip().lower()
+        model = analysis.get('model', '').strip().lower()
+        year_range = analysis.get('year_range', '').strip()
+        part_name = analysis.get('part_name', '').strip().lower()
+        part_numbers = analysis.get('part_numbers', '').strip()
+        
+        # Check if any critical SEO elements are missing or generic
+        missing_make = not make or make in ['unknown', 'generic', 'oem', 'aftermarket', 'n/a']
+        missing_model = not model or model in ['unknown', 'generic', 'various', 'multiple', 'n/a']
+        missing_year = not year_range or year_range in ['unknown', 'various', 'multiple', 'n/a']
+        missing_part_name = not part_name or part_name in ['unknown', 'auto part', 'part', 'n/a']
+        missing_part_numbers = not part_numbers or part_numbers in ['unknown', 'not visible', 'n/a', 'not found']
+        
+        needs_extraction = missing_make or missing_model or missing_year or missing_part_name or missing_part_numbers
+        
+        if needs_extraction:
+            print(f"Comprehensive SEO extraction needed:")
+            print(f"  Make: '{make}' {'❌' if missing_make else '✅'}")
+            print(f"  Model: '{model}' {'❌' if missing_model else '✅'}")
+            print(f"  Year: '{year_range}' {'❌' if missing_year else '✅'}")
+            print(f"  Part Name: '{part_name}' {'❌' if missing_part_name else '✅'}")
+            print(f"  Part Numbers: '{part_numbers}' {'❌' if missing_part_numbers else '✅'}")
+        
+        return needs_extraction
+    
+    async def _extract_fitment_data(self, images: list, initial_analysis: Dict) -> Dict:
+        """Stage 2: Comprehensive extraction of ALL critical SEO elements for eBay titles"""
+        try:
+            # Get whatever Stage 1 provided as context
+            stage1_part_name = initial_analysis.get('part_name', 'unknown')
+            stage1_make = initial_analysis.get('make', 'unknown')
+            stage1_model = initial_analysis.get('model', 'unknown')
+            stage1_year = initial_analysis.get('year_range', 'unknown')
+            stage1_part_numbers = initial_analysis.get('part_numbers', 'unknown')
+            stage1_condition = initial_analysis.get('condition', 'unknown')
+            
+            # Comprehensive Stage 2 prompt demanding ALL SEO elements
+            comprehensive_prompt = f"""
+            You are an expert eBay auto parts reseller. I need you to analyze these images and provide ALL the critical information needed for a perfect eBay SEO title.
+
+            CONTEXT FROM INITIAL ANALYSIS:
+            Part Name: {stage1_part_name}
+            Make: {stage1_make}
+            Model: {stage1_model}
+            Year: {stage1_year}
+            Part Numbers: {stage1_part_numbers}
+            Condition: {stage1_condition}
+
+            Now look at these images again and provide me with COMPLETE information for each field below. Use the context above as a starting point, but look at the images to fill in any missing or incorrect information.
+
+            I need ALL of these fields filled out for the perfect eBay SEO title:
+
+            Make: (Toyota, Honda, Ford, Subaru, Nissan, BMW, Mercedes, etc.)
+            Model: (Camry, Civic, F-150, Outback, Altima, 3 Series, C-Class, etc.)
+            Year: (year range like 2005-2010, 2015-2020, single year like 2018, etc.)
+            Part Name: (specific part name like "ABS Pump Control Module", "Headlight Assembly", "Tail Light", etc.)
+            Part Number: (all visible part numbers, separated by commas)
+            Side: (if applicable: Left, Right, Driver, Passenger, Front, Rear, or N/A)
+            Condition: (New, Used, Refurbished, For Parts, etc.)
+
+            Look carefully at:
+            - Any manufacturer logos or stamps
+            - Part numbers on labels, stickers, or molded into plastic
+            - Design features that indicate specific vehicle fitment
+            - Any text or markings that show make/model/year
+            - Mounting points or connectors that indicate specific vehicle compatibility
+
+            Respond in JSON format:
+            {{
+                "make": "vehicle make",
+                "model": "vehicle model",
+                "year_range": "YYYY-YYYY or YYYY format",
+                "part_name": "specific part name",
+                "part_numbers": "all part numbers found",
+                "side": "Left/Right/Driver/Passenger/Front/Rear or N/A",
+                "condition": "condition assessment",
+                "confidence_score": "1-10 based on how certain you are"
+            }}
+
+            Focus on accuracy and completeness - this information will be used to create the eBay listing title and must be correct for customer fitment.
+            """
+            
+            # Use same model and config as Stage 1
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            generation_config = {
+                "temperature": 0.1,
+                "top_p": 0.8,
+                "top_k": 40,
+                "max_output_tokens": 2048,  # Allow detailed response
+                "candidate_count": 1,
+            }
+            
+            content = [comprehensive_prompt] + images
+            
+            print(f"\n=== STAGE 2 COMPREHENSIVE PROMPT ===")
+            print(f"Prompt length: {len(comprehensive_prompt)} characters")
+            print(f"Context provided: Part={stage1_part_name}, Make={stage1_make}, Model={stage1_model}")
+            print(f"=== SENDING TO GEMINI ===")
+            
+            response = model.generate_content(content, generation_config=generation_config)
+            
+            print(f"Stage 2 Gemini Response: {response.text}")
+            
+            # Parse JSON response
+            response_text = response.text.strip()
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0]
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1]
+            
+            comprehensive_data = json.loads(response_text.strip())
+            
+            # Only return data that's actually useful (not "Unknown" or generic)
+            filtered_data = {}
+            for key, value in comprehensive_data.items():
+                if value and str(value).lower() not in ['unknown', 'n/a', 'not visible', 'not found', 'generic', '']:
+                    filtered_data[key] = value
+            
+            # Update eBay title with comprehensive data if we got good results
+            if len(filtered_data) >= 3:  # At least 3 useful fields
+                make = filtered_data.get('make', initial_analysis.get('make', ''))
+                model = filtered_data.get('model', initial_analysis.get('model', ''))
+                year_range = filtered_data.get('year_range', initial_analysis.get('year_range', ''))
+                part_name = filtered_data.get('part_name', initial_analysis.get('part_name', ''))
+                part_numbers = filtered_data.get('part_numbers', initial_analysis.get('part_numbers', ''))
+                side = filtered_data.get('side', '')
+                
+                # Build comprehensive eBay title
+                title_parts = []
+                if year_range: title_parts.append(year_range)
+                if make: title_parts.append(make)
+                if model: title_parts.append(model)
+                if part_name: title_parts.append(part_name)
+                if side and side.lower() != 'n/a': title_parts.append(side)
+                if part_numbers: title_parts.append(part_numbers.split(',')[0])  # First part number
+                title_parts.append('OEM')
+                
+                filtered_data['ebay_title'] = ' '.join(title_parts)
+                print(f"✅ Generated comprehensive eBay title: {filtered_data['ebay_title']}")
+            
+            return filtered_data
+            
+        except Exception as e:
+            print(f"Error in Stage 2 comprehensive extraction: {str(e)}")
+            return {}
+    
+
 
     def _get_demo_response(self) -> Dict:
         """Return demo response when no AI is configured"""
