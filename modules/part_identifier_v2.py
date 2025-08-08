@@ -396,6 +396,7 @@ Please be thorough and accurate, as this information will be used to create a re
             result = {
                 "part_name": parsed_result.get("name", "Unknown Part"),
                 "seo_title": parsed_result.get("ebay_title", ""),
+                "ebay_title": parsed_result.get("ebay_title", ""),  # Pass through the Optimized Title
                 "description": parsed_result.get("description", ""),
                 "part_number": parsed_result.get("part_numbers", [""])[0] if parsed_result.get("part_numbers") else "",
                 "part_numbers": parsed_result.get("part_numbers", []),
@@ -424,6 +425,7 @@ Please be thorough and accurate, as this information will be used to create a re
                 # Add all parsed fields for frontend to use
                 "part_name": result["part_name"],
                 "seo_title": result["seo_title"],
+                "ebay_title": parsed_result.get("ebay_title", ""),
                 "description": result["description"],
                 "part_numbers": result["part_numbers"],
                 "make": result["make"],
@@ -484,6 +486,7 @@ Please be thorough and accurate, as this information will be used to create a re
             # Remove quotes if present
             optimized_title = optimized_title.strip('"').strip("'")
             result["ebay_title"] = optimized_title[:80]  # eBay title limit
+            print(f"DEBUG: Extracted Optimized Title: {result['ebay_title']}")
         
         # Look for "PART TYPE:" or similar
         part_type_match = re.search(r'(?:PART TYPE|Part Type|IDENTIFICATION):\s*([^\n]+)', response_text, re.IGNORECASE)
