@@ -757,10 +757,104 @@ async def process_images(files: list[UploadFile] = File(...)):
             print(f"Database error: {db_error}")
             record_id = "demo_record"
         
+        # Generate SEO-optimized title following user's format requirements
+        def generate_seo_title(part_info):
+            """Generate SEO title with 80-char limit: [Year Range] + Make + Model + Part Name + Part Number + Color + OEM"""
+            MAX_TITLE_LENGTH = 80
+            
+            # Build components in priority order
+            components = []
+            
+            # Priority 1: Year range (fitment data) - to be implemented later when available
+            year_range = None
+            # if part_info.get("year_range"):
+            #     year_range = part_info["year_range"]
+            #     components.append(("year_range", year_range))
+            
+            # Priority 2: Make
+            make = part_info.get("make")
+            if make:
+                components.append(("make", make))
+            
+            # Priority 3: Model  
+            model = part_info.get("model")
+            if model:
+                components.append(("model", model))
+            
+            # Priority 4: Part Name (always required)
+            part_name = part_info.get("part_name", "Auto Part")
+            components.append(("part_name", part_name))
+            
+            # Priority 5: Part Number
+            part_number = None
+            part_numbers = part_info.get("part_numbers") or part_info.get("part_number")
+            if part_numbers and part_numbers != "Unknown":
+                if isinstance(part_numbers, list):
+                    part_number = part_numbers[0]
+                elif isinstance(part_numbers, str) and part_numbers.strip():
+                    first_part_num = part_numbers.split(',')[0].strip()
+                    if first_part_num:
+                        part_number = first_part_num
+            if part_number:
+                components.append(("part_number", part_number))
+            
+            # Priority 6: Color (if applicable)
+            color = part_info.get("color")
+            if color and color.lower() not in ["unknown", "n/a", "none", ""]:
+                components.append(("color", color))
+            
+            # Priority 7: OEM (if applicable)
+            if part_info.get("is_oem", False):
+                components.append(("oem", "OEM"))
+            
+            # Build title with smart truncation
+            title_parts = []
+            current_length = 0
+            
+            for component_type, component_value in components:
+                # Calculate length if we add this component (including space separator)
+                additional_length = len(component_value)
+                if title_parts:  # Add space separator length
+                    additional_length += 1
+                
+                # Check if adding this component would exceed the limit
+                if current_length + additional_length <= MAX_TITLE_LENGTH:
+                    title_parts.append(component_value)
+                    current_length += additional_length
+                else:
+                    # Try to fit a truncated version of this component if it's important
+                    if component_type in ["part_name", "make", "model"]:
+                        # For critical components, try to fit a shortened version
+                        available_space = MAX_TITLE_LENGTH - current_length
+                        if title_parts:  # Account for space separator
+                            available_space -= 1
+                        
+                        if available_space >= 3:  # Minimum meaningful length
+                            truncated_value = component_value[:available_space].strip()
+                            # Avoid cutting off in the middle of a word if possible
+                            if len(truncated_value) < len(component_value) and ' ' in truncated_value:
+                                # Find the last complete word that fits
+                                words = truncated_value.split(' ')
+                                if len(words) > 1:
+                                    truncated_value = ' '.join(words[:-1])
+                            
+                            if len(truncated_value) >= 3:  # Still meaningful after truncation
+                                title_parts.append(truncated_value)
+                                current_length = MAX_TITLE_LENGTH
+                    break
+            
+            final_title = " ".join(title_parts)
+            
+            # Final safety check - should never happen but just in case
+            if len(final_title) > MAX_TITLE_LENGTH:
+                final_title = final_title[:MAX_TITLE_LENGTH].strip()
+            
+            return final_title
+
         # Return single comprehensive result with proper key mapping
         result = {
             "part_name": part_info.get("part_name", "Unknown Part"),
-            "seo_title": part_info.get("ebay_title", part_info.get("part_name", "Unknown Part")),
+            "seo_title": generate_seo_title(part_info),
             "description": part_info.get("description", "Auto part in good condition"),
             "estimated_price": part_info.get("estimated_price", 0),
             "market_price": part_info.get("market_price", 0),
