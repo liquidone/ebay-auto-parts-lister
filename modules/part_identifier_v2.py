@@ -444,7 +444,10 @@ Please be thorough and accurate, as this information will be used to create a re
             return result
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             print(f"Error in Gemini analysis: {e}")
+            print(f"Full traceback:\n{error_details}")
             return self._get_error_response(str(e))
     
     def _parse_gemini_response(self, response_text: str) -> Dict:
