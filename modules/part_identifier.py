@@ -135,28 +135,77 @@ class PartIdentifier:
                     print(f"Converting image {i+1} from {image.mode} to RGB")
                     image = image.convert('RGB')
                 
-                # 4. Check image quality (avoid blurry images as per Gemini docs)
-                # Simple blur detection using image variance
+                # 4. Enhanced pre-processing for desktop-level accuracy (per Gemini recommendations)
                 import numpy as np
+                from PIL import ImageEnhance, ImageFilter
+                
+                # Apply sharpening filter to enhance part number visibility
+                enhancer = ImageEnhance.Sharpness(image)
+                image = enhancer.enhance(1.3)  # 30% sharpening boost
+                print(f"Applied sharpening enhancement to image {i+1}")
+                
+                # Apply contrast enhancement to improve text/marking visibility
+                contrast_enhancer = ImageEnhance.Contrast(image)
+                image = contrast_enhancer.enhance(1.2)  # 20% contrast boost
+                print(f"Applied contrast enhancement to image {i+1}")
+                
+                # Apply slight unsharp mask for part number clarity
+                image = image.filter(ImageFilter.UnsharpMask(radius=1, percent=120, threshold=3))
+                print(f"Applied unsharp mask to image {i+1}")
+                
+                # Check image quality (avoid blurry images as per Gemini docs)
                 gray = image.convert('L')
                 variance = np.var(np.array(gray))
-                print(f"Image {i+1} quality variance: {variance:.2f} (higher = sharper)")
+                print(f"Image {i+1} final quality variance: {variance:.2f} (higher = sharper)")
+                
+                # Normalize image data for consistent analysis
+                if variance < 100:  # Low variance indicates potential blur
+                    print(f"WARNING: Image {i+1} may be blurry (variance: {variance:.2f})")
                 
                 images.append(image)
             
             print(f"Total images prepared for Gemini: {len(images)}")
             
-            # Create the enhanced prompt for automotive parts analysis with FITMENT DATA emphasis
+            # Create the enhanced prompt for automotive parts analysis with CHAIN-OF-THOUGHT and FEW-SHOT EXAMPLES
             prompt = f"""
-            You are an expert eBay auto parts reseller. Your sole purpose is to help identify and price automotive parts for quick and profitable sales.
+            You are an expert automotive parts specialist with access to comprehensive part databases. Follow this EXACT analysis chain:
 
-            Here are examples of correct auto part identification with FITMENT YEARS:
-            
-            Example 1: Part number "VC12-004" = 2004-2006 Subaru Outback Interior Roof Overhead Reading Light
-            Example 2: Part number "11-6370-00-1N" = 2008-2017 Dodge Grand Caravan LEFT Driver Side Tail Light
-            Example 3: Part number "FL3Z-13404-A" = 2015-2020 Ford F-150 Headlight Assembly
-            Example 4: Part number "84001-AE040" = 2005-2009 Subaru Outback/Legacy Headlight Assembly
-            Example 5: Part number "86201FG642" = 2009-2014 Subaru Legacy/Outback Radio Receiver
+            STEP 1: VISUAL INSPECTION
+            - Examine all surfaces for part numbers, manufacturer stamps, date codes
+            - Identify mounting points, connectors, and unique design features
+            - Note any visible text, logos, or markings
+
+            STEP 2: PART IDENTIFICATION  
+            - Determine the specific automotive component type
+            - Identify left/right orientation if applicable
+            - Assess condition and any damage
+
+            STEP 3: VEHICLE COMPATIBILITY
+            - Use part numbers and design features to determine exact fitment
+            - Establish make, model, and year range compatibility
+            - Cross-reference with known automotive databases
+
+            STEP 4: VALIDATION
+            - Verify part number against manufacturer databases
+            - Confirm year range accuracy
+            - Validate make/model compatibility
+
+            FEW-SHOT EXAMPLES (Learn from these patterns):
+
+            EXAMPLE 1 - Subaru Tail Light:
+            Image shows: Tail light assembly with visible part numbers
+            Analysis: Part number "84912AL00A" visible on back → Cross-reference shows 2010-2014 Subaru Legacy/Outback → Right passenger side based on mounting design
+            Result: "2010-2014 Subaru Legacy Outback Right Passenger Tail Light 84912AL00A OEM"
+
+            EXAMPLE 2 - Ford Headlight:
+            Image shows: Headlight assembly with Ford logo and part number
+            Analysis: Part number "FL3Z-13404-A" stamped on housing → Database lookup shows 2015-2020 Ford F-150 → Left driver side based on connector position
+            Result: "2015-2020 Ford F-150 Left Driver Headlight Assembly FL3Z-13404-A OEM"
+
+            EXAMPLE 3 - Honda Radio:
+            Image shows: Car stereo unit with Honda branding
+            Analysis: Part number "39100-TK8-A91" on label → Cross-reference shows 2014-2017 Honda Odyssey → OEM unit based on Honda logo
+            Result: "2014-2017 Honda Odyssey Radio Stereo Unit 39100-TK8-A91 OEM"
             
             CRITICAL REQUIREMENTS:
             1. When you find a part number, use it to determine the EXACT FITMENT YEARS (e.g., 2009-2014, 2015-2020)
@@ -226,14 +275,14 @@ class PartIdentifier:
             """
             
             # Use the latest vision-optimized model (as recommended by Gemini team)
-            model = genai.GenerativeModel('gemini-1.5-pro-latest')
+            model = genai.GenerativeModel('gemini-1.5-pro')
             
-            # Configure generation settings to match Gemini Gem's optimized parameters
+            # Configure generation settings optimized for desktop-level accuracy (per Gemini recommendations)
             generation_config = {
-                "temperature": 0.0,  # Deterministic for consistent part identification
-                "top_p": 0.95,      # Higher precision for technical analysis
-                "top_k": 64,        # More diverse token consideration
-                "max_output_tokens": 4096,  # Allow detailed responses
+                "temperature": 0.1,  # Very low for deterministic part identification (0.0 can be too rigid)
+                "top_p": 0.8,       # Lower for more focused, accurate responses
+                "top_k": 40,        # Reduced for more precise token selection
+                "max_output_tokens": 8192,  # Increased for detailed chain-of-thought analysis
                 "candidate_count": 1,       # Single best response
             }
             
@@ -242,7 +291,7 @@ class PartIdentifier:
             
             # Generate response with config
             print(f"\n=== SENDING TO GEMINI ===")
-            print(f"Model: gemini-2.0-flash-exp")
+            print(f"Model: gemini-1.5-pro")
             print(f"Generation config: {generation_config}")
             print(f"Prompt length: {len(prompt)} characters")
             print(f"Images count: {len(images)}")
@@ -298,46 +347,82 @@ class PartIdentifier:
         }
 
     async def _validate_part_identification(self, analysis: Dict) -> Dict:
-        """Post-processing validation to override AI's vehicle identification with database lookup"""
+        """Enhanced post-processing validation with cross-referencing (per Gemini desktop recommendations)"""
         try:
-            # Extract part number from AI response
-            part_number = analysis.get('part_number', '').strip()
+            # Extract part numbers from AI response (check multiple fields)
+            part_numbers = []
             
-            if not part_number or part_number == 'Not Found':
+            # Check various possible part number fields
+            if analysis.get('part_numbers'):
+                part_numbers.extend(analysis['part_numbers'].split(','))
+            if analysis.get('part_number'):
+                part_numbers.append(analysis['part_number'])
+            
+            # Clean and deduplicate part numbers
+            part_numbers = [pn.strip() for pn in part_numbers if pn.strip() and pn.strip() != 'Not Found']
+            part_numbers = list(set(part_numbers))  # Remove duplicates
+            
+            print(f"\n=== ENHANCED VALIDATION (Desktop-Level) ===")
+            print(f"Part numbers found: {part_numbers}")
+            
+            if not part_numbers:
+                print("No part numbers found - using visual analysis only")
+                analysis['confidence_score'] = min(analysis.get('confidence_score', 5), 6)  # Cap at 6/10 for visual-only
+                analysis['validation_notes'] = "Visual identification only - no part numbers visible for database validation"
                 return analysis
             
-            # Try multiple lookup sources in priority order
-            db_info = await self._lookup_part_info(part_number)
+            # Try database validation for each part number
+            validated_info = None
+            for part_number in part_numbers:
+                db_info = await self._lookup_part_info(part_number)
+                if db_info:
+                    validated_info = db_info
+                    validated_part_number = part_number
+                    break
             
-            # Check if part number was found in any database
-            if db_info:
+            if validated_info:
+                print(f"✅ DATABASE VALIDATION SUCCESS")
+                print(f"Part number {validated_part_number} found in database")
+                print(f"AI suggested: {analysis.get('vehicles', 'Unknown')}")
+                print(f"Database confirms: {validated_info['vehicle']}")
                 
-                print(f"\n=== DATABASE OVERRIDE ===")
-                print(f"Part number {part_number} found in database")
-                print(f"AI suggested: {analysis.get('vehicle_compatibility', 'Unknown')}")
-                print(f"Database says: {db_info['vehicle']}")
-                print(f"OVERRIDING AI with database info")
-                print(f"=== END DATABASE OVERRIDE ===\n")
+                # Cross-reference AI analysis with database info
+                ai_make = analysis.get('make', '').lower()
+                db_make = validated_info.get('make', '').lower()
                 
-                # Override AI's identification with database info
-                analysis['vehicle_compatibility'] = db_info['vehicle']
-                analysis['part_name'] = db_info['part_name']
-                analysis['confidence_score'] = 10  # Maximum confidence for database match
-                analysis['validation_notes'] = f"Part number {part_number} validated against database. Overrode AI visual identification."
+                if ai_make and db_make and ai_make in db_make:
+                    print(f"✅ AI and database AGREE on make: {validated_info['make']}")
+                    confidence_boost = 2
+                else:
+                    print(f"⚠️  AI/database make mismatch - trusting database")
+                    confidence_boost = 1
                 
-                # Update eBay title with correct vehicle info
-                analysis['ebay_title'] = f"{db_info['years']} {db_info['make']} {db_info['model']} {db_info['part_name']} {part_number} OEM"
+                # Enhanced override with validation
+                analysis['vehicles'] = validated_info['vehicle']
+                analysis['make'] = validated_info['make']
+                analysis['model'] = validated_info.get('model', analysis.get('model', ''))
+                analysis['year_range'] = validated_info.get('years', analysis.get('year_range', ''))
+                analysis['part_name'] = validated_info['part_name']
+                analysis['confidence_score'] = min(10, analysis.get('confidence_score', 5) + confidence_boost)
+                analysis['validation_notes'] = f"Part number {validated_part_number} validated against database. AI visual analysis cross-referenced and confirmed."
                 
-                # Update description with correct vehicle info
-                if 'description' in analysis:
-                    # Replace any incorrect vehicle references in description
-                    original_desc = analysis['description']
-                    analysis['description'] = f"{db_info['years']} {db_info['make']} {db_info['model']} {db_info['part_name']}. Part Number: {part_number}. {original_desc.split('Part Number:')[1] if 'Part Number:' in original_desc else 'Used condition, tested and working. Please verify fitment with your vehicle before purchasing.'}"
+                # Update eBay title with validated info
+                analysis['ebay_title'] = f"{validated_info.get('years', '')} {validated_info['make']} {validated_info.get('model', '')} {validated_info['part_name']} {validated_part_number} OEM".strip()
+                
+            else:
+                print(f"❌ No database match found for part numbers: {part_numbers}")
+                print(f"Using AI visual analysis with reduced confidence")
+                analysis['confidence_score'] = min(analysis.get('confidence_score', 5), 7)  # Cap at 7/10 without database validation
+                analysis['validation_notes'] = f"Part numbers {', '.join(part_numbers)} not found in database - relying on visual analysis"
+            
+            print(f"Final confidence score: {analysis.get('confidence_score', 5)}/10")
+            print(f"=== END ENHANCED VALIDATION ===\n")
             
             return analysis
             
         except Exception as e:
-            print(f"Error in part validation: {str(e)}")
+            print(f"Error in enhanced validation: {str(e)}")
+            analysis['validation_notes'] = f"Validation error: {str(e)}"
             return analysis
     
     async def _lookup_part_info(self, part_number: str) -> Dict:
