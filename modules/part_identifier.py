@@ -6,8 +6,6 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import google.generativeai as genai
 import re
-from google.cloud import vision
-from google.oauth2 import service_account
 
 # Try to load .env file if dotenv is available
 try:
@@ -20,6 +18,7 @@ except ImportError:
 # Google Cloud Vision API for enhanced OCR
 try:
     from google.cloud import vision
+    from google.oauth2 import service_account
     CLOUD_VISION_AVAILABLE = True
 except ImportError:
     CLOUD_VISION_AVAILABLE = False
