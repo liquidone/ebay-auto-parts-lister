@@ -332,23 +332,37 @@ Please be thorough and accurate, as this information will be used to create a re
                 with open(image_path, "rb") as image_file:
                     encoded_images.append(image_file.read())
             
-            # Build content for Gemini - using PIL Image format
+            # Build content for Gemini - using inline_data format
             from PIL import Image
             import io
             
-            content_parts = [prompt]
+            # First add the text prompt
+            content_parts = []
+            
+            # Add images using the proper inline_data format
             for img_bytes in encoded_images:
-                # Convert bytes to PIL Image
+                # Open as PIL Image to verify it's valid
                 img = Image.open(io.BytesIO(img_bytes))
-                content_parts.append(img)
+                # Add as inline_data blob
+                content_parts.append({
+                    'inline_data': {
+                        'mime_type': 'image/jpeg',
+                        'data': base64.b64encode(img_bytes).decode('utf-8')
+                    }
+                })
+            
+            # Add the prompt text after images
+            content_parts.append({'text': prompt})
             
             # Debug: Check content structure before sending
             print(f"DEBUG: Content parts type: {type(content_parts)}, Length: {len(content_parts)}")
-            print(f"DEBUG: First item type: {type(content_parts[0])}")
-            if len(content_parts) > 1:
-                print(f"DEBUG: Second item type: {type(content_parts[1])}")
+            for i, part in enumerate(content_parts):
+                if 'text' in part:
+                    print(f"DEBUG: Part {i} is text, length: {len(part['text'])}")
+                elif 'inline_data' in part:
+                    print(f"DEBUG: Part {i} is image with mime_type: {part['inline_data']['mime_type']}")
             
-            # Send to Gemini
+            # Send to Gemini with proper format
             response = self.model.generate_content(content_parts)
             response_text = response.text
             
