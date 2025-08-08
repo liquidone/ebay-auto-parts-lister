@@ -26,7 +26,7 @@ class PartIdentifier:
             genai.configure(api_key=gemini_key)
             self.ai_client = "gemini"
             self.demo_mode = False
-            print("✅ Using Google Gemini for AI analysis")
+            print("SUCCESS: Using Google Gemini for AI analysis")
         else:
             self.ai_client = None
             self.demo_mode = True
@@ -122,11 +122,27 @@ class PartIdentifier:
                 analysis = await self._validate_part_identification(analysis)
                 
                 # Add version tracking and debug info
-                analysis['system_version'] = 'v3.0-Consolidated-Clean'
+                analysis['system_version'] = 'v3.1-Debug-Output'
                 analysis['workflow_timestamp'] = datetime.now().isoformat()
                 analysis['notes'] = f"{analysis.get('notes', '')} [System: Clean 3-step OCR→Research→Validation workflow - {datetime.now().strftime('%H:%M:%S')}]"
                 
-                print(f"\n✅ WORKFLOW COMPLETE - Version: v3.0-Consolidated-Clean")
+                # Add comprehensive debug output for UI inspection
+                analysis['debug_output'] = {
+                    'step1_ocr_raw': ocr_analysis,
+                    'step2_fitment_raw': fitment_data,
+                    'step3_analysis_raw': analysis.copy(),
+                    'extracted_part_numbers': part_numbers_list,
+                    'workflow_steps': [
+                        'Step 1: Hybrid OCR (Cloud Vision + Gemini)',
+                        'Step 2: Part Number Fitment Lookup',
+                        'Step 3: Context & Description Generation',
+                        'Step 4: Pattern Validation (DISABLED)'
+                    ]
+                }
+                
+                print(f"🔍 DEBUG: Final analysis with debug output: {analysis.get('debug_output', {})}")
+                
+                print(f"\nSUCCESS: WORKFLOW COMPLETE - Version: v3.1-Debug-Output")
                 return analysis
                 
             else:
@@ -321,11 +337,11 @@ class PartIdentifier:
         
         if needs_extraction:
             print(f"Comprehensive SEO extraction needed:")
-            print(f"  Make: '{make}' {'❌' if missing_make else '✅'}")
-            print(f"  Model: '{model}' {'❌' if missing_model else '✅'}")
-            print(f"  Year: '{year_range}' {'❌' if missing_year else '✅'}")
-            print(f"  Part Name: '{part_name}' {'❌' if missing_part_name else '✅'}")
-            print(f"  Part Numbers: '{part_numbers}' {'❌' if missing_part_numbers else '✅'}")
+            print(f"  Make: '{make}' {'MISSING' if missing_make else 'OK'}")
+            print(f"  Model: '{model}' {'MISSING' if missing_model else 'OK'}")
+            print(f"  Year: '{year_range}' {'MISSING' if missing_year else 'OK'}")
+            print(f"  Part Name: '{part_name}' {'MISSING' if missing_part_name else 'OK'}")
+            print(f"  Part Numbers: '{part_numbers}' {'MISSING' if missing_part_numbers else 'OK'}")
         
         return needs_extraction
     
@@ -442,7 +458,7 @@ class PartIdentifier:
                 title_parts.append('OEM')
                 
                 filtered_data['ebay_title'] = ' '.join(title_parts)
-                print(f"✅ Generated comprehensive eBay title: {filtered_data['ebay_title']}")
+                print(f"SUCCESS: Generated comprehensive eBay title: {filtered_data['ebay_title']}")
             
             return filtered_data
             
@@ -643,7 +659,7 @@ class PartIdentifier:
             print(f"🔄 OCR Merge Results:")
             print(f"   📊 Cloud Vision: {len(cv_part_numbers)} part numbers, avg confidence: {cv_avg_confidence:.1f}%")
             print(f"   🤖 Gemini: {len(gemini_part_numbers)} part numbers, confidence: {gemini_confidence}/10")
-            print(f"   ✅ Final: {len(unique_part_numbers)} unique part numbers, confidence: {merged_result['ocr_confidence']}/10")
+            print(f"   SUCCESS: Final: {len(unique_part_numbers)} unique part numbers, confidence: {merged_result['ocr_confidence']}/10")
             
             return merged_result
             
@@ -730,7 +746,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
             
             try:
                 fitment_data = json.loads(response_text)
-                print(f"✅ Fitment lookup results: {fitment_data}")
+                print(f"SUCCESS: Fitment lookup results: {fitment_data}")
                 print(f"🔍 DEBUG: Raw Gemini response for part {primary_part_number}: {response_text}")
                 
                 # Validate and clean the fitment data
@@ -777,7 +793,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
                 validation_result = await self._pattern_based_validation(part_number)
                 if validation_result:
                     validation_results[part_number] = validation_result
-                    print(f"✅ Pattern validation success for {part_number}: {validation_result.get('make', 'Unknown')} {validation_result.get('description', '')}")
+                    print(f"SUCCESS: Pattern validation success for {part_number}: {validation_result.get('make', 'Unknown')} {validation_result.get('description', '')}")
                     break  # Use first successful validation
                 else:
                     print(f"❌ Pattern validation failed for {part_number}")
@@ -824,7 +840,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
             # Check against known patterns
             for pattern, info in part_patterns.items():
                 if re.match(pattern, clean_part_number):
-                    print(f"✅ Pattern match: {clean_part_number} matches {info['pattern']}")
+                    print(f"SUCCESS: Pattern match: {clean_part_number} matches {info['pattern']}")
                     return {
                         'make': info['make'],
                         'supplier': info.get('supplier', ''),
@@ -882,7 +898,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
                     validated_part_number = part_number
             
             if best_validation and highest_confidence >= 7:
-                print(f"✅ Using external validation (confidence: {highest_confidence}/10)")
+                print(f"SUCCESS: Using external validation (confidence: {highest_confidence}/10)")
                 print(f"Validated part number: {validated_part_number}")
                 print(f"Validated make: {best_validation.get('make', 'Unknown')}")
                 
@@ -910,7 +926,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
                     title_parts.append('OEM')
                 
                 analysis['ebay_title'] = ' '.join(title_parts)
-                print(f"✅ Generated validated eBay title: {analysis['ebay_title']}")
+                print(f"SUCCESS: Generated validated eBay title: {analysis['ebay_title']}")
                 
             else:
                 print(f"❌ Validation confidence too low ({highest_confidence}/10) - using AI analysis")
@@ -975,7 +991,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
                     break
             
             if validated_info:
-                print(f"✅ DATABASE VALIDATION SUCCESS")
+                print(f"SUCCESS: DATABASE VALIDATION SUCCESS")
                 print(f"Part number {validated_part_number} found in database")
                 print(f"AI suggested: {analysis.get('vehicles', 'Unknown')}")
                 print(f"Database confirms: {validated_info['vehicle']}")
@@ -985,7 +1001,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
                 db_make = validated_info.get('make', '').lower()
                 
                 if ai_make and db_make and ai_make in db_make:
-                    print(f"✅ AI and database AGREE on make: {validated_info['make']}")
+                    print(f"SUCCESS: AI and database AGREE on make: {validated_info['make']}")
                     confidence_boost = 2
                 else:
                     print(f"⚠️  AI/database make mismatch - trusting database")
@@ -1048,7 +1064,7 @@ Focus on OEM fitment data, not aftermarket compatibility.
             }
             
             if part_number in local_cache:
-                print(f"✅ Found in local cache: {local_cache[part_number]['vehicle']}")
+                print(f"SUCCESS: Found in local cache: {local_cache[part_number]['vehicle']}")
                 print(f"=== END PHASE 2 LOOKUP ===\n")
                 return local_cache[part_number]
             
@@ -1390,7 +1406,7 @@ Be extremely careful with part number OCR - accuracy is critical.
             print(f"🔄 Phase 3: Merging Cloud Vision + Gemini OCR results")
             merged_result = self._merge_ocr_results(cloud_vision_results, gemini_result)
             
-            print(f"✅ HYBRID OCR COMPLETE:")
+            print(f"SUCCESS: HYBRID OCR COMPLETE:")
             print(f"   📊 Cloud Vision: {len([r for r in cloud_vision_results if r.get('part_numbers')])} images with part numbers")
             print(f"   🤖 Gemini: {len(gemini_result.get('part_numbers', '').split(',')) if gemini_result.get('part_numbers') else 0} part numbers")
             print(f"   🔄 Merged: {len(merged_result.get('part_numbers', '').split(',')) if merged_result.get('part_numbers') else 0} final part numbers")
@@ -1426,7 +1442,7 @@ Be extremely careful with part number OCR - accuracy is critical.
             print(f"🔍 DEBUG: Step 3 received fitment_data: {fitment_data}")
             fitment_context = ""
             if fitment_data and fitment_data.get('make'):
-                print(f"✅ DEBUG: Using confirmed fitment data: {fitment_data.get('make')} {fitment_data.get('model')} {fitment_data.get('year_range')}")
+                print(f"SUCCESS: DEBUG: Using confirmed fitment data: {fitment_data.get('make')} {fitment_data.get('model')} {fitment_data.get('year_range')}")
                 fitment_context = f"""
 CONFIRMED FITMENT DATA (from part number lookup):
 - Vehicle: {fitment_data.get('make', '')} {fitment_data.get('model', '')} {fitment_data.get('year_range', '')}

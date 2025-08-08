@@ -63,8 +63,35 @@ async def root():
             * { box-sizing: border-box; }
             body { 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-                max-width: 800px; margin: 0 auto; padding: 20px; 
+                max-width: 1400px; margin: 0 auto; padding: 20px; 
                 background: #f8f9fa; color: #333; line-height: 1.6;
+            }
+            .main-container {
+                display: flex; gap: 20px; align-items: flex-start;
+            }
+            .left-panel {
+                flex: 1; max-width: 800px;
+            }
+            .right-panel {
+                flex: 1; max-width: 600px; position: sticky; top: 20px;
+            }
+            .debug-panel {
+                background: #1e1e1e; color: #f8f8f2; padding: 15px; border-radius: 8px;
+                font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4;
+                max-height: 80vh; overflow-y: auto; border: 1px solid #444;
+            }
+            .debug-panel h3 {
+                color: #50fa7b; margin: 0 0 10px 0; font-size: 14px;
+            }
+            .debug-section {
+                margin-bottom: 15px; padding: 10px; background: #2d2d2d; border-radius: 4px;
+                border-left: 3px solid #50fa7b;
+            }
+            .debug-key {
+                color: #8be9fd; font-weight: bold;
+            }
+            .debug-value {
+                color: #f1fa8c; margin-left: 10px;
             }
             h1 { 
                 color: #007bff; text-align: center; margin-bottom: 30px; 
@@ -103,17 +130,29 @@ async def root():
     </head>
     <body>
         <h1>eBay Auto Parts Lister</h1>
-        <div class="upload-area" onclick="document.getElementById('fileInput').click()" style="cursor: pointer;">
-            <p><strong>🖱️ CLICK HERE TO SELECT IMAGES</strong></p>
-            <p style="font-size: 16px; color: #007bff; margin-top: 10px;">📁 Select up to 24 auto part images</p>
-            <p style="font-size: 12px; color: #666;">Click to browse or drag & drop images here</p>
-            <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="handleFileSelection(this)">
+        <div class="main-container">
+            <div class="left-panel">
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()" style="cursor: pointer;">
+                    <p><strong>🖱️ CLICK HERE TO SELECT IMAGES</strong></p>
+                    <p style="font-size: 16px; color: #007bff; margin-top: 10px;">📁 Select up to 24 auto part images</p>
+                    <p style="font-size: 12px; color: #666;">Click to browse or drag & drop images here</p>
+                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="handleFileSelection(this)">
+                </div>
+                <div id="fileCount" style="margin: 10px 0; font-weight: bold; color: #007bff;"></div>
+                <button onclick="processImages()" id="processBtn" disabled style="opacity: 0.5;">Process Images</button>
+                <button onclick="clearFiles()" id="clearBtn" style="margin-left: 10px; background: #dc3545; display: none;">Clear All</button>
+                <button onclick="testEbayConnection()" id="testEbayBtn" style="margin-left: 10px; background: #28a745;">Test eBay Connection</button>
+                <div id="results" class="results" style="display: none;"></div>
+            </div>
+            <div class="right-panel">
+                <div class="debug-panel" id="debugPanel" style="display: none;">
+                    <h3>🔍 Debug Output</h3>
+                    <div id="debugContent">
+                        <p style="color: #6272a4; font-style: italic;">Debug information will appear here after processing...</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div id="fileCount" style="margin: 10px 0; font-weight: bold; color: #007bff;"></div>
-        <button onclick="processImages()" id="processBtn" disabled style="opacity: 0.5;">Process Images</button>
-        <button onclick="clearFiles()" id="clearBtn" style="margin-left: 10px; background: #dc3545; display: none;">Clear All</button>
-        <button onclick="testEbayConnection()" id="testEbayBtn" style="margin-left: 10px; background: #28a745;">Test eBay Connection</button>
-        <div id="results" class="results" style="display: none;"></div>
         
         <script>
             let selectedFiles = [];
@@ -529,6 +568,87 @@ async def root():
                 `;
                 
                 resultsDiv.appendChild(resultDiv);
+                
+                // Populate debug panel with raw data
+                populateDebugPanel(result);
+            }
+            
+            function populateDebugPanel(result) {
+                const debugPanel = document.getElementById('debugPanel');
+                const debugContent = document.getElementById('debugContent');
+                
+                if (!result.debug_output) {
+                    debugContent.innerHTML = '<p style="color: #ff6b6b; font-style: italic;">No debug data available in this result.</p>';
+                    debugPanel.style.display = 'block';
+                    return;
+                }
+                
+                const debug = result.debug_output;
+                let debugHtml = '';
+                
+                // Step 1: OCR Raw Data
+                if (debug.step1_ocr_raw) {
+                    debugHtml += `
+                        <div class="debug-section">
+                            <div class="debug-key">STEP 1: OCR Raw Data</div>
+                            <div class="debug-value">
+                                <div><span class="debug-key">Part Numbers:</span> ${JSON.stringify(debug.extracted_part_numbers || [])}</div>
+                                <div><span class="debug-key">OCR Text:</span> ${debug.step1_ocr_raw.raw_text || 'N/A'}</div>
+                                <div><span class="debug-key">Confidence:</span> ${debug.step1_ocr_raw.confidence_score || 'N/A'}</div>
+                                <div><span class="debug-key">Cloud Vision:</span> ${debug.step1_ocr_raw.cloud_vision_text ? 'Available' : 'Not Available'}</div>
+                                <div><span class="debug-key">Gemini OCR:</span> ${debug.step1_ocr_raw.gemini_ocr_text ? 'Available' : 'Not Available'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Step 2: Fitment Raw Data
+                if (debug.step2_fitment_raw) {
+                    debugHtml += `
+                        <div class="debug-section">
+                            <div class="debug-key">STEP 2: Fitment Lookup Raw</div>
+                            <div class="debug-value">
+                                <div><span class="debug-key">Make:</span> ${debug.step2_fitment_raw.make || 'N/A'}</div>
+                                <div><span class="debug-key">Model:</span> ${debug.step2_fitment_raw.model || 'N/A'}</div>
+                                <div><span class="debug-key">Year Range:</span> ${debug.step2_fitment_raw.year_range || 'N/A'}</div>
+                                <div><span class="debug-key">Part Description:</span> ${debug.step2_fitment_raw.part_description || 'N/A'}</div>
+                                <div><span class="debug-key">Confidence:</span> ${debug.step2_fitment_raw.confidence || 'N/A'}</div>
+                                <div><span class="debug-key">Data Source:</span> ${debug.step2_fitment_raw.data_source || 'Gemini Training Data'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Step 3: Final Analysis
+                if (debug.step3_analysis_raw) {
+                    debugHtml += `
+                        <div class="debug-section">
+                            <div class="debug-key">STEP 3: Final Analysis</div>
+                            <div class="debug-value">
+                                <div><span class="debug-key">Part Name:</span> ${debug.step3_analysis_raw.part_name || 'N/A'}</div>
+                                <div><span class="debug-key">Vehicle Make:</span> ${debug.step3_analysis_raw.vehicle_make || 'N/A'}</div>
+                                <div><span class="debug-key">Vehicle Model:</span> ${debug.step3_analysis_raw.vehicle_model || 'N/A'}</div>
+                                <div><span class="debug-key">Vehicle Year:</span> ${debug.step3_analysis_raw.vehicle_year || 'N/A'}</div>
+                                <div><span class="debug-key">System Version:</span> ${debug.step3_analysis_raw.system_version || 'N/A'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Workflow Steps
+                if (debug.workflow_steps) {
+                    debugHtml += `
+                        <div class="debug-section">
+                            <div class="debug-key">WORKFLOW STEPS</div>
+                            <div class="debug-value">
+                                ${debug.workflow_steps.map(step => `<div>• ${step}</div>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                debugContent.innerHTML = debugHtml;
+                debugPanel.style.display = 'block';
             }
             
             // Test eBay Connection function for main button
@@ -874,7 +994,10 @@ async def process_images(files: list[UploadFile] = File(...)):
             "validation_notes": part_info.get("validation_notes", ""),
             "total_images": len(processed_images),
             "images": processed_images,
-            "record_id": record_id
+            "record_id": record_id,
+            # Add debug output for UI inspection
+            "debug_output": part_info.get("debug_output", None),
+            "system_version": part_info.get("system_version", "v3.1-Debug-Output")
         }
         
         return result
