@@ -242,7 +242,16 @@ Key Features: [bullet points]"""
             "confidence_score": 0.85
         }
         
-        lines = response_text.split('\n')
+        # Clean the response text first - remove any leading prompt artifacts
+        clean_text = response_text
+        prompt_starters = ["Of course", "Here is a detailed analysis", "Based on a thorough review"]
+        for starter in prompt_starters:
+            if starter in clean_text:
+                parts = clean_text.split(starter, 1)
+                if len(parts) > 1:
+                    clean_text = parts[1]
+        
+        lines = clean_text.split('\n')
         current_section = ""
         
         for line in lines:
@@ -320,21 +329,22 @@ Key Features: [bullet points]"""
                         pass
             
             elif current_section == "listing":
-                if "Title:" in line or "Optimized Title:" in line:
-                    title = line.split(":", 1)[1].strip() if ":" in line else ""
+                if "Title:" in line:
+                    title = line.split("Title:", 1)[1].strip()
                     result["ebay_title"] = title[:80]  # Limit to 80 chars
                 elif "Category:" in line:
                     result["category"] = line.split("Category:", 1)[1].strip()
                 elif "Description:" in line:
-                    # Start capturing multi-line description
-                    desc_start = line.split("Description:", 1)[1].strip() if "Description:" in line else ""
-                    result["description"] = desc_start
-                elif current_section == "listing" and result["description"] and not any(x in line for x in ["Title:", "Category:", "Key Features:"]):
-                    # Continue building description if we're in listing section
-                    if not line.startswith("###") and not line.startswith("**"):
-                        result["description"] += " " + line
+                    # Extract only the description value, not the whole response
+                    desc = line.split("Description:", 1)[1].strip()
+                    # Stop at any section markers or prompt artifacts
+                    for marker in ["Key Features:", "**", "###", "SCENARIO:", "CRITICAL:", "YOUR TASK:"]:
+                        if marker in desc:
+                            desc = desc.split(marker)[0].strip()
+                            break
+                    result["description"] = desc
                 elif "Key Features:" in line:
-                    features = line.split(":", 1)[1].strip()
+                    features = line.split("Key Features:", 1)[1].strip()
                     if features and features not in result["key_features"]:
                         result["key_features"].append(features)
         
@@ -362,16 +372,37 @@ Key Features: [bullet points]"""
         
         # Clean up description - remove any prompt text that leaked through
         if result["description"]:
-            # Remove common prompt artifacts
+            # Remove common prompt artifacts and clean up
             desc = result["description"]
+            
+            # Remove asterisks and excessive formatting
+            desc = desc.replace("**", "").replace("*", "")
+            
+            # Remove prompt artifacts
             prompt_artifacts = [
                 "SCENARIO:", "CRITICAL:", "YOUR TASK:", "Based on a thorough review",
-                "perform the following steps:", "### STEP", "**STEP"
+                "perform the following steps:", "### STEP", "STEP", "Of course",
+                "Here is a detailed analysis", "This is a", "It typically includes"
             ]
             for artifact in prompt_artifacts:
                 if artifact in desc:
                     # Cut off at the artifact
                     desc = desc.split(artifact)[0].strip()
+            
+            # If description is too short or seems wrong, build a default one
+            if len(desc) < 20 or desc.startswith("This is a"):
+                desc_parts = []
+                if result["part_name"]:
+                    desc_parts.append(f"Genuine {result['part_name']}")
+                if result["condition"]:
+                    desc_parts.append(f"in {result['condition']} condition")
+                if result["vehicles"]:
+                    desc_parts.append(f"Compatible with: {result['vehicles']}")
+                if desc_parts:
+                    desc = ". ".join(desc_parts) + "."
+                else:
+                    desc = "Auto part in good condition. Please verify fitment before purchasing."
+            
             result["description"] = desc[:500]  # Limit description length
         
         # Ensure price fields are set

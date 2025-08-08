@@ -1128,6 +1128,7 @@ async def process_images(files: list[UploadFile] = File(...)):
         # Return single comprehensive result with proper key mapping
         result = {
             "part_name": part_info.get("part_name", "Unknown Part"),
+            "ebay_title": part_info.get("ebay_title") or part_info.get("seo_title") or generate_seo_title(part_info),
             "seo_title": part_info.get("ebay_title") or part_info.get("seo_title") or generate_seo_title(part_info),
             "description": part_info.get("description", "Auto part in good condition"),
             "estimated_price": part_info.get("estimated_price", 0),
