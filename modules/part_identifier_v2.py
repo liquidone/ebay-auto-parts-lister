@@ -489,7 +489,6 @@ Please be thorough and accurate, as this information will be used to create a re
             if len(optimized_title) > 80:
                 optimized_title = optimized_title[:77] + "..."  # Leave room for ellipsis
             result["ebay_title"] = optimized_title
-            print(f"DEBUG: Extracted Optimized Title: {result['ebay_title']}")
         
         # Look for "PART TYPE:" or similar
         part_type_match = re.search(r'(?:PART TYPE|Part Type|IDENTIFICATION):\s*([^\n]+)', response_text, re.IGNORECASE)
