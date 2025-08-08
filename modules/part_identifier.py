@@ -8,10 +8,14 @@ import google.generativeai as genai
 import re
 from google.cloud import vision
 from google.oauth2 import service_account
-from dotenv import load_dotenv
 
-# FORCE LOAD .env FILE - FIX FOR PRODUCTION SERVER
-load_dotenv()
+# Try to load .env file if dotenv is available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Loaded .env file successfully")
+except ImportError:
+    print("⚠️ python-dotenv not installed, using system environment variables")
 
 # Google Cloud Vision API for enhanced OCR
 try:
