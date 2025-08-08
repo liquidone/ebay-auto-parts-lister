@@ -81,17 +81,16 @@ class PartIdentifier:
             return matches[0]
         return None
     
-    def _perform_ocr_on_images(self, image_paths: List[str]) -> Tuple[List[str], str, Optional[str]]:
-        """Perform OCR on images to extract part numbers and VIN"""
+    def _perform_ocr_on_images(self, image_paths: List[str]) -> Tuple[str, Optional[str]]:
+        """Perform OCR on images to extract text and VIN"""
         all_text = ""
-        part_numbers = []
         vin_number = None
         
         if not self.vision_client:
             print("Vision API not available, skipping OCR")
-            return [], "", None
+            return "", None
         
-        for image_path in image_paths:
+        for idx, image_path in enumerate(image_paths):
             try:
                 with open(image_path, 'rb') as image_file:
                     content = image_file.read()
@@ -103,40 +102,18 @@ class PartIdentifier:
                 if texts:
                     # First annotation contains all text
                     full_text = texts[0].description
-                    all_text += full_text + " "
+                    all_text += f"Image {idx+1}: {full_text}\n"
                     
                     # Extract VIN if not already found
                     if not vin_number:
                         vin_number = self._extract_vin_from_text(full_text)
                         if vin_number:
                             print(f"VIN detected: {vin_number}")
-                    
-                    # Extract part numbers (common patterns)
-                    # Look for patterns like: XXXXX-XXXXX, XXXX-XXX-XXX, etc.
-                    part_patterns = [
-                        r'\b[A-Z0-9]{5}-[A-Z0-9]{5}\b',  # Toyota/Lexus style
-                        r'\b[A-Z0-9]{4}-[A-Z0-9]{3}-[A-Z0-9]{3}\b',  # Honda style
-                        r'\b[A-Z0-9]{2}[A-Z0-9]{3}-[A-Z0-9]{5}\b',  # Ford style
-                        r'\b[0-9]{8}\b',  # GM 8-digit
-                        r'\b[A-Z0-9]{6,10}\b'  # Generic 6-10 character
-                    ]
-                    
-                    for pattern in part_patterns:
-                        found = re.findall(pattern, full_text.upper())
-                        part_numbers.extend(found)
                         
             except Exception as e:
                 print(f"Error performing OCR on {image_path}: {e}")
         
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_parts = []
-        for num in part_numbers:
-            if num not in seen and num != vin_number:  # Don't include VIN as part number
-                seen.add(num)
-                unique_parts.append(num)
-        
-        return unique_parts[:10], all_text[:500], vin_number  # Limit to top 10 part numbers
+        return all_text, vin_number
     
     def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
         """
@@ -190,15 +167,13 @@ class PartIdentifier:
         self.debug_output["workflow_steps"].append("Single comprehensive analysis started")
         
         # Perform OCR on images first
-        part_numbers, ocr_text, vin_number = self._perform_ocr_on_images(image_paths)
+        ocr_text, vin_number = self._perform_ocr_on_images(images)
         
         # Determine scenario based on OCR results
-        if part_numbers:
+        if ocr_text and ocr_text.strip():
+            # We have OCR text - let Gemini determine if it contains part numbers
             scenario = "A"
-            ocr_info = f"OCR Results: {', '.join(part_numbers)}"
-        elif ocr_text.strip():
-            scenario = "B"
-            ocr_info = f"OCR Text Found: {ocr_text}"
+            ocr_info = f"OCR Results:\n{ocr_text}"
         else:
             scenario = "C"
             ocr_info = ""
@@ -213,13 +188,8 @@ I have attached multiple images of a single auto part. It is critical that you a
 """
         
         if scenario == "A":
-            prompt += f"""**SCENARIO A: I have images AND a list of possible part numbers from an OCR scan.**
-My OCR scan returned the following potential numbers. Please verify which of these are correct by cross-referencing all images, identify the primary part number, and use it for your research.
-{ocr_info}
-"""
-        elif scenario == "B":
-            prompt += f"""**SCENARIO B: I have images, but OCR found NO part numbers.**
-My OCR scan did not return any usable numbers. Your task will be to identify the part based on its visual characteristics across all images.
+            prompt += f"""**SCENARIO A: I have images AND OCR text extracted from them.**
+My OCR scan returned the following text from the images. Please analyze this text to identify any part numbers, brand names, or other relevant information.
 {ocr_info}
 """
         else:
@@ -249,8 +219,8 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
 **STEP 1: VISUAL ANALYSIS & IDENTIFICATION**
 1.  **Part Type:** What specific type of auto part is this?
 2.  **Part Numbers:**
-    * For Scenario A: Confirm which of the provided numbers are accurate and visible. Identify the primary OEM part number.
-    * For Scenarios B & C: Transcribe ALL visible part numbers. **(If a VIN was provided, you can use it to help verify the correct part number for that specific vehicle).** If none, state "No part number visible."
+    * For Scenario A: Analyze the OCR text to extract any part numbers. Cross-reference with what's visible in the images. Identify the primary OEM part number.
+    * For Scenario C: Transcribe ALL visible part numbers from the images. If none, state "No part number visible."
 3.  **Brand/Manufacturer:** Identify any visible brands.
 4.  **Condition:** Synthesize the part's overall condition from ALL images. Note any scratches, broken tabs, cracked lenses, rust, or missing components visible across ANY of the photos.
 
