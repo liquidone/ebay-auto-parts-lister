@@ -146,22 +146,33 @@ class PartIdentifier:
             
             print(f"Total images prepared for Gemini: {len(images)}")
             
-            # Create the enhanced prompt for automotive parts analysis
+            # Create the enhanced prompt for automotive parts analysis with FITMENT DATA emphasis
             prompt = f"""
             You are an expert eBay auto parts reseller. Your sole purpose is to help identify and price automotive parts for quick and profitable sales.
 
-            Here are examples of correct auto part identification:
+            Here are examples of correct auto part identification with FITMENT YEARS:
             
             Example 1: Part number "VC12-004" = 2004-2006 Subaru Outback Interior Roof Overhead Reading Light
             Example 2: Part number "11-6370-00-1N" = 2008-2017 Dodge Grand Caravan LEFT Driver Side Tail Light
             Example 3: Part number "FL3Z-13404-A" = 2015-2020 Ford F-150 Headlight Assembly
             Example 4: Part number "84001-AE040" = 2005-2009 Subaru Outback/Legacy Headlight Assembly
+            Example 5: Part number "86201FG642" = 2009-2014 Subaru Legacy/Outback Radio Receiver
             
-            CRITICAL: When you find a part number, use it to determine the correct vehicle make and model. Do NOT guess based on appearance.
+            CRITICAL REQUIREMENTS:
+            1. When you find a part number, use it to determine the EXACT FITMENT YEARS (e.g., 2009-2014, 2015-2020)
+            2. FITMENT YEARS are essential for eBay SEO - they must be the FIRST element in titles
+            3. Do NOT guess fitment years - only provide if you can determine from part number or clear visual evidence
+            4. If unsure about exact years, provide a reasonable range based on part number patterns
 
             When I upload these {len(images)} images of the SAME automotive part, follow these steps precisely:
 
-            1. Identify the Auto Part:
+            1. FITMENT ANALYSIS (MOST IMPORTANT):
+               - Determine the EXACT year range this part fits (e.g., 2009-2014, 2015-2020)
+               - Use part numbers to cross-reference fitment data
+               - Look for manufacturing dates, model generation indicators
+               - If part number is visible, determine fitment years from part number patterns
+
+            2. Identify the Auto Part:
                Thoroughly analyze all images I provide.
                Identify the automotive part, including:
                - Exact part name and type
@@ -171,17 +182,17 @@ class PartIdentifier:
                - Whether it's OEM or aftermarket
                - Any unique characteristics you can see
 
-            2. Vehicle Compatibility:
+            3. Vehicle Compatibility:
                Determine the specific vehicles this part fits:
                - Make (Ford, Toyota, Honda, Subaru, etc.)
                - Model (F-150, Camry, Civic, Outback, etc.)
-               - Year range (e.g., 2004-2006)
+               - YEAR RANGE (e.g., 2009-2014) - CRITICAL FOR SEO
                - Side if applicable (Left/Driver or Right/Passenger)
 
-            3. Provide Detailed Analysis:
+            4. Provide Detailed Analysis:
                Present your findings with:
                - Complete part identification
-               - Exact vehicle compatibility
+               - Exact vehicle compatibility with YEAR RANGE
                - Part number if visible
                - Condition assessment
                - Estimated weight and dimensions for shipping
@@ -193,6 +204,9 @@ class PartIdentifier:
                 "category": "category from options: {', '.join(self.part_categories[:5])}",
                 "condition": "condition assessment",
                 "vehicles": "exact make/model/years based on part number",
+                "year_range": "YYYY-YYYY format (e.g., 2009-2014) - REQUIRED for SEO titles",
+                "make": "vehicle make (e.g., Subaru, Ford, Toyota)",
+                "model": "vehicle model (e.g., Outback, F-150, Camry)",
                 "part_numbers": "all visible part numbers found",
                 "features": "key identifying features and validation notes",
                 "estimated_price": 0.00,
@@ -207,6 +221,8 @@ class PartIdentifier:
                 "confidence_score": "1-10 based on part number visibility and cross-reference success",
                 "validation_notes": "explain how part number and design features confirm identification"
             }}
+            
+            REMEMBER: The year_range field is CRITICAL for eBay SEO optimization and must be included whenever possible!
             """
             
             # Use the latest vision-optimized model (as recommended by Gemini team)

@@ -765,9 +765,10 @@ async def process_images(files: list[UploadFile] = File(...)):
             # Build components in USER'S EXACT ORDER
             title_parts = []
             
-            # 1. Year range (fitment data) - to be implemented later when available
-            # if part_info.get("year_range"):
-            #     title_parts.append(part_info["year_range"])
+            # 1. Year range (fitment data) - NOW ENABLED with enhanced Gemini prompt
+            year_range = part_info.get("year_range")
+            if year_range and year_range.lower() not in ["unknown", "n/a", "none", ""]:
+                title_parts.append(year_range)
             
             # 2. Make
             make = part_info.get("make")
