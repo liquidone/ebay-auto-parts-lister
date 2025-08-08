@@ -363,8 +363,17 @@ Please be thorough and accurate, as this information will be used to create a re
                     print(f"DEBUG: Part {i} is image with mime_type: {part['inline_data']['mime_type']}")
             
             # Send to Gemini with proper format
-            response = self.model.generate_content(content_parts)
-            response_text = response.text
+            try:
+                print(f"DEBUG: About to call model.generate_content")
+                response = self.model.generate_content(content_parts)
+                print(f"DEBUG: Response received, type: {type(response)}")
+                response_text = response.text
+                print(f"DEBUG: Response text extracted, length: {len(response_text)}")
+            except Exception as e:
+                print(f"DEBUG: Exception in generate_content: {type(e).__name__}: {str(e)}")
+                import traceback
+                print(f"DEBUG: Traceback: {traceback.format_exc()}")
+                raise
             
             # Add FULL content to debug output (no truncation)
             gemini_response_data = {
