@@ -29,25 +29,14 @@ except Exception as e:
     print(f"✗ Failed to initialize Vision client: {e}")
     sys.exit(1)
 
-# Test with a sample image (using one of the existing test images)
-test_image_path = "/opt/ebay-auto-parts-lister/test_images/abs_module.jpg"
+# Test with a public image URL (Google's sample)
+print("Testing with Google's sample image from URL...")
 
-if not os.path.exists(test_image_path):
-    print(f"Test image not found at {test_image_path}")
-    print("Creating a simple test with text detection on a URL image instead...")
-    
-    # Use a public image URL for testing
-    image = vision.Image()
-    image.source.image_uri = "https://cloud.google.com/vision/docs/images/sign_text.png"
-    
-    print("\nTesting with Google's sample image...")
-else:
-    # Load the local test image
-    with open(test_image_path, 'rb') as image_file:
-        content = image_file.read()
-    
-    image = vision.Image(content=content)
-    print(f"\nTesting with local image: {test_image_path}")
+# Use a public image URL for testing
+image = vision.Image()
+image.source.image_uri = "https://cloud.google.com/vision/docs/images/sign_text.png"
+
+print("Image URL: https://cloud.google.com/vision/docs/images/sign_text.png")
 
 # Perform text detection
 try:
