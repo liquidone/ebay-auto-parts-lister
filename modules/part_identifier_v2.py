@@ -420,9 +420,6 @@ Please be thorough and accurate, as this information will be used to create a re
         """
         Parse Gemini's response into structured data
         """
-        # Clean up markdown formatting
-        clean_text = response_text.replace('**', '').replace('*', '')
-        
         result = {
             "name": "Auto Part",
             "ebay_title": "",
@@ -446,21 +443,38 @@ Please be thorough and accurate, as this information will be used to create a re
             "confidence_score": 7
         }
         
-        # Extract part identification (first line often contains the main identification)
-        lines = clean_text.split('\n')
-        if lines:
-            first_line = lines[0].strip()
-            # Remove common prefixes
-            for prefix in ['This is a', 'This appears to be a', 'The part is a', 'Part Type:', 'PART TYPE:']:
-                if first_line.startswith(prefix):
-                    first_line = first_line[len(prefix):].strip()
-            # Take the first sentence as the part name
-            if '.' in first_line:
-                result["name"] = first_line.split('.')[0].strip()
-            elif ',' in first_line:
-                result["name"] = first_line.split(',')[0].strip()
-            else:
-                result["name"] = first_line[:80] if len(first_line) > 80 else first_line
+        # First, let's look for specific patterns in the response
+        # Look for "PART TYPE:" or similar
+        part_type_match = re.search(r'(?:PART TYPE|Part Type|IDENTIFICATION):\s*([^\n]+)', response_text, re.IGNORECASE)
+        if part_type_match:
+            result["name"] = part_type_match.group(1).strip().replace('**', '').replace('*', '')
+        else:
+            # Try to extract from first substantive line
+            lines = response_text.split('\n')
+            for line in lines:
+                clean_line = line.strip().replace('**', '').replace('*', '')
+                if clean_line and len(clean_line) > 10:
+                    # Remove common prefixes
+                    for prefix in ['This is an', 'This is a', 'This appears to be an', 'This appears to be a', 'The part is an', 'The part is a']:
+                        if clean_line.lower().startswith(prefix.lower()):
+                            clean_line = clean_line[len(prefix):].strip()
+                            break
+                    
+                    # Extract the part name (up to first period or comma)
+                    if '.' in clean_line:
+                        part_name = clean_line.split('.')[0].strip()
+                    elif ',' in clean_line:
+                        part_name = clean_line.split(',')[0].strip()
+                    else:
+                        part_name = clean_line
+                    
+                    # Limit length and clean up
+                    if part_name and len(part_name) > 5:
+                        result["name"] = part_name[:100] if len(part_name) > 100 else part_name
+                        break
+        
+        # Clean text for further processing
+        clean_text = response_text.replace('**', '').replace('*', '')
         
         # Build description from the full response (cleaned)
         result["description"] = clean_text[:500] if len(clean_text) > 500 else clean_text
