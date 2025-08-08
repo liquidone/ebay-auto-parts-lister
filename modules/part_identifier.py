@@ -9,6 +9,14 @@ from PIL import Image
 import google.generativeai as genai
 from datetime import datetime
 
+# Google Cloud Vision API for enhanced OCR
+try:
+    from google.cloud import vision
+    CLOUD_VISION_AVAILABLE = True
+except ImportError:
+    CLOUD_VISION_AVAILABLE = False
+    print("⚠️ Google Cloud Vision not available. Install with: pip install google-cloud-vision")
+
 class PartIdentifier:
     def __init__(self):
         # Initialize Gemini client only - clean, simple architecture
@@ -467,6 +475,161 @@ class PartIdentifier:
         except Exception as e:
             print(f"⚠️ Image preprocessing failed: {str(e)}, using original")
             return image_data
+
+    async def _extract_text_with_cloud_vision(self, image_data: bytes) -> Dict:
+        """
+        Extract text using Google Cloud Vision API for superior OCR accuracy
+        """
+        if not CLOUD_VISION_AVAILABLE:
+            print("⚠️ Google Cloud Vision not available, skipping enhanced OCR")
+            return {"texts": [], "confidence": 0}
+        
+        try:
+            # Initialize the client
+            client = vision.ImageAnnotatorClient()
+            
+            # Preprocess image for optimal OCR
+            processed_image_data = await self._preprocess_image_for_gemini(image_data)
+            
+            # Create Vision API image object
+            image = vision.Image(content=processed_image_data)
+            
+            # Perform text detection
+            response = client.text_detection(image=image)
+            texts = response.text_annotations
+            
+            if response.error.message:
+                raise Exception(f"Cloud Vision API error: {response.error.message}")
+            
+            # Extract text with confidence scores
+            extracted_texts = []
+            overall_confidence = 0
+            
+            if texts:
+                # First annotation contains the full text
+                full_text = texts[0].description
+                overall_confidence = getattr(texts[0], 'confidence', 0.8) * 100
+                
+                print(f"🔍 Cloud Vision OCR extracted: {len(full_text)} characters")
+                print(f"📊 OCR Confidence: {overall_confidence:.1f}%")
+                
+                # Extract individual text elements with bounding boxes
+                for text in texts[1:]:  # Skip the first full-text annotation
+                    text_info = {
+                        'text': text.description,
+                        'confidence': getattr(text, 'confidence', 0.8) * 100,
+                        'bounds': [(vertex.x, vertex.y) for vertex in text.bounding_poly.vertices]
+                    }
+                    extracted_texts.append(text_info)
+                
+                # Find part numbers using regex patterns
+                part_number_patterns = [
+                    r'\b\d{5,}-\d{2,}\w*\b',  # Toyota/Lexus style: 89541-12610
+                    r'\b\d{6,}-\d{2,}\w*\b',  # Extended format: 114040-30060
+                    r'\b[A-Z]{2,}\d{4,}-\d{2,}\b',  # Supplier codes: ADVICS1234-56
+                    r'\b\d{4,}-[A-Z0-9]{3,}\b',  # Alternative format: 4540-72A10
+                ]
+                
+                detected_part_numbers = []
+                for pattern in part_number_patterns:
+                    matches = re.findall(pattern, full_text, re.IGNORECASE)
+                    detected_part_numbers.extend(matches)
+                
+                # Remove duplicates while preserving order
+                unique_part_numbers = []
+                for pn in detected_part_numbers:
+                    if pn not in unique_part_numbers:
+                        unique_part_numbers.append(pn)
+                
+                print(f"🔢 Detected part numbers: {unique_part_numbers}")
+                
+                return {
+                    "full_text": full_text,
+                    "texts": extracted_texts,
+                    "part_numbers": unique_part_numbers,
+                    "confidence": overall_confidence,
+                    "method": "google_cloud_vision"
+                }
+            else:
+                print("❌ No text detected by Cloud Vision OCR")
+                return {"texts": [], "part_numbers": [], "confidence": 0, "method": "google_cloud_vision"}
+                
+        except Exception as e:
+            print(f"❌ Cloud Vision OCR failed: {str(e)}")
+            return {"texts": [], "part_numbers": [], "confidence": 0, "error": str(e), "method": "google_cloud_vision"}
+
+    def _merge_ocr_results(self, cloud_vision_results: List[Dict], gemini_result: Dict) -> Dict:
+        """
+        Merge Cloud Vision and Gemini OCR results for maximum accuracy
+        Prioritizes Cloud Vision for part numbers, Gemini for context
+        """
+        try:
+            # Collect all part numbers from Cloud Vision (highest accuracy)
+            cv_part_numbers = []
+            cv_confidence_sum = 0
+            cv_count = 0
+            
+            for cv_result in cloud_vision_results:
+                if cv_result.get('part_numbers'):
+                    cv_part_numbers.extend(cv_result['part_numbers'])
+                    cv_confidence_sum += cv_result.get('confidence', 0)
+                    cv_count += 1
+            
+            # Get Gemini part numbers as backup/validation
+            gemini_part_numbers = []
+            if gemini_result.get('part_numbers'):
+                gemini_part_numbers = [pn.strip() for pn in gemini_result['part_numbers'].split(',') if pn.strip()]
+            
+            # Merge and deduplicate part numbers (prioritize Cloud Vision)
+            all_part_numbers = cv_part_numbers + gemini_part_numbers
+            unique_part_numbers = []
+            for pn in all_part_numbers:
+                if pn and pn not in unique_part_numbers:
+                    unique_part_numbers.append(pn)
+            
+            # Calculate confidence (Cloud Vision weighted higher)
+            cv_avg_confidence = (cv_confidence_sum / cv_count) if cv_count > 0 else 0
+            gemini_confidence = gemini_result.get('ocr_confidence', 1)
+            
+            if cv_count > 0:
+                # Weighted average: 70% Cloud Vision, 30% Gemini
+                merged_confidence = (cv_avg_confidence * 0.7) + (gemini_confidence * 0.3)
+            else:
+                # Fall back to Gemini only
+                merged_confidence = gemini_confidence
+            
+            # Merge visible text (combine all sources)
+            visible_texts = []
+            for cv_result in cloud_vision_results:
+                if cv_result.get('full_text'):
+                    visible_texts.append(cv_result['full_text'])
+            if gemini_result.get('visible_text'):
+                visible_texts.append(gemini_result['visible_text'])
+            
+            merged_visible_text = '\n'.join(visible_texts)
+            
+            # Build merged result
+            merged_result = {
+                "visible_text": merged_visible_text,
+                "part_numbers": ', '.join(unique_part_numbers),
+                "brand_names": gemini_result.get('brand_names', ''),  # Gemini better at context
+                "labels_and_markings": gemini_result.get('labels_and_markings', ''),
+                "ocr_confidence": min(10, max(1, int(merged_confidence))),
+                "ocr_method": "hybrid_cloud_vision_gemini",
+                "cloud_vision_count": cv_count,
+                "gemini_backup": len(gemini_part_numbers) > 0
+            }
+            
+            print(f"🔄 OCR Merge Results:")
+            print(f"   📊 Cloud Vision: {len(cv_part_numbers)} part numbers, avg confidence: {cv_avg_confidence:.1f}%")
+            print(f"   🤖 Gemini: {len(gemini_part_numbers)} part numbers, confidence: {gemini_confidence}/10")
+            print(f"   ✅ Final: {len(unique_part_numbers)} unique part numbers, confidence: {merged_result['ocr_confidence']}/10")
+            
+            return merged_result
+            
+        except Exception as e:
+            print(f"❌ OCR merge failed: {str(e)}, falling back to Gemini only")
+            return gemini_result
 
     async def _validate_part_numbers_externally(self, part_numbers: List[str]) -> Dict:
         """External validation layer - verify part numbers against web sources (Gemini's recommendation)"""
@@ -1009,16 +1172,34 @@ class PartIdentifier:
     
     async def _step1_ocr_extraction(self, encoded_images: list) -> Dict:
         """
-        Step 1: Pure OCR and part number extraction
-        Focus solely on accurate text transcription
+        Step 1: Hybrid OCR - Cloud Vision + Gemini for maximum accuracy
+        Uses Google Cloud Vision for precise text extraction, Gemini for context
         """
         try:
+            print(f"🔍 HYBRID OCR: Cloud Vision + Gemini approach")
+            
+            # PHASE 1: Google Cloud Vision OCR (if available)
+            cloud_vision_results = []
+            if CLOUD_VISION_AVAILABLE:
+                print(f"📊 Phase 1: Google Cloud Vision OCR on {len(encoded_images)} images")
+                for i, encoded_image in enumerate(encoded_images):
+                    image_data = base64.b64decode(encoded_image)
+                    cv_result = await self._extract_text_with_cloud_vision(image_data)
+                    cloud_vision_results.append(cv_result)
+                    print(f"   Image {i+1}: {len(cv_result.get('part_numbers', []))} part numbers detected")
+            else:
+                print(f"⚠️ Cloud Vision not available, using Gemini-only OCR")
+            
+            # PHASE 2: Gemini Vision OCR (always run for validation/context)
+            print(f"🤖 Phase 2: Gemini Vision OCR for context and validation")
+            
             # Prepare images for Gemini
             images = []
             for encoded_image in encoded_images:
                 image_data = base64.b64decode(encoded_image)
                 image = Image.open(io.BytesIO(image_data))
-                image = await self._preprocess_image_for_gemini(image)
+                processed_image_data = await self._preprocess_image_for_gemini(image_data)
+                image = Image.open(io.BytesIO(processed_image_data))
                 images.append(image)
             
             prompt = """
@@ -1065,18 +1246,28 @@ Be extremely careful with part number OCR - accuracy is critical.
                 response_text = response_text[3:-3].strip()
             
             try:
-                ocr_result = json.loads(response_text.strip())
-                print(f" Step 1 OCR Results: {ocr_result}")
-                return ocr_result
+                gemini_result = json.loads(response_text.strip())
+                print(f"🤖 Gemini OCR Results: {gemini_result}")
             except json.JSONDecodeError as e:
-                print(f"OCR JSON parsing error: {e}")
-                return {
+                print(f"Gemini OCR JSON parsing error: {e}")
+                gemini_result = {
                     "visible_text": response_text,
                     "part_numbers": "",
                     "brand_names": "",
                     "labels_and_markings": "",
                     "ocr_confidence": 1
                 }
+            
+            # PHASE 3: Merge Cloud Vision + Gemini results for maximum accuracy
+            print(f"🔄 Phase 3: Merging Cloud Vision + Gemini OCR results")
+            merged_result = self._merge_ocr_results(cloud_vision_results, gemini_result)
+            
+            print(f"✅ HYBRID OCR COMPLETE:")
+            print(f"   📊 Cloud Vision: {len([r for r in cloud_vision_results if r.get('part_numbers')])} images with part numbers")
+            print(f"   🤖 Gemini: {len(gemini_result.get('part_numbers', '').split(',')) if gemini_result.get('part_numbers') else 0} part numbers")
+            print(f"   🔄 Merged: {len(merged_result.get('part_numbers', '').split(',')) if merged_result.get('part_numbers') else 0} final part numbers")
+            
+            return merged_result
                 
         except Exception as e:
             print(f"Step 1 OCR extraction error: {e}")
