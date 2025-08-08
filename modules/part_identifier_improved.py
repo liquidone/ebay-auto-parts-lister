@@ -9,9 +9,9 @@ import google.generativeai as genai
 try:
     from dotenv import load_dotenv
     load_dotenv()
-    print("Loaded .env file successfully")
+    print("✅ Loaded .env file successfully")
 except ImportError:
-    print("WARNING: python-dotenv not installed, using system environment variables")
+    print("⚠️ python-dotenv not installed, using system environment variables")
 
 class PartIdentifier:
     def __init__(self):
@@ -21,32 +21,25 @@ class PartIdentifier:
         print(f"DEBUG: PartIdentifier.__init__ called")
         print(f"DEBUG: GEMINI_API_KEY: {'SET' if gemini_key else 'NOT SET'}")
         
-        # Set demo mode first
+        # Initialize debug data storage
+        self.debug_output = {
+            "step1_ocr_raw": "",
+            "step2_fitment_raw": "",
+            "step3_pricing_raw": "",
+            "gemini_responses": [],
+            "workflow_steps": [],
+            "processing_time": 0
+        }
+        
         if gemini_key:
             genai.configure(api_key=gemini_key)
-            self.model = genai.GenerativeModel('gemini-2.5-pro')  # Using Gemini 2.5 Pro
+           
             self.demo_mode = False
-            print("Using Google Gemini 2.5 Pro for AI analysis")
+            print("✅ Using Google Gemini 2.5 Pro for AI analysis")
         else:
             self.model = None
             self.demo_mode = True
-            print("WARNING: Running in demo mode - no Gemini API key found")
-        
-        # Initialize debug data storage (after demo_mode is set)
-        self.debug_output = {
-            "api_status": {
-                "demo_mode": self.demo_mode,
-                "api_client": "gemini" if gemini_key else None,
-                "api_key_configured": bool(gemini_key)
-            },
-            "step1_ocr_raw": {},
-            "step2_fitment_raw": {},
-            "step3_analysis_raw": {},
-            "raw_gemini_responses": [],
-            "workflow_steps": [],
-            "processing_time": 0,
-            "extracted_part_numbers": []
-        }
+            print("⚠️ WARNING: Running in demo mode - no Gemini API key found")
 
     async def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
         """
@@ -149,24 +142,14 @@ CONDITION: [assessment]"""
             )
             
             response_text = response.text
-            self.debug_output["step1_ocr_raw"] = {
-                "raw_text": response_text[:500],  # First 500 chars for display
-                "confidence_score": 0.8,
-                "gemini_ocr_text": response_text
-            }
-            self.debug_output["raw_gemini_responses"].append({
-                "step": "Step 1 OCR",
-                "model": "gemini-2.5-pro",
-                "prompt": prompt[:500],  # First 500 chars
-                "raw_response": response_text,
-                "timestamp": datetime.now().isoformat()
+            self.debug_output["step1_ocr_raw"] = response_text
+            self.debug_output["gemini_responses"].append({
+                "step": "identification",
+                "response": response_text
             })
             
             # Parse the response
             result = self._parse_identification_response(response_text)
-            
-            # Extract part numbers for debug
-            self.debug_output["extracted_part_numbers"] = result.get('part_numbers', [])
             self.debug_output["workflow_steps"].append(f"Step 1 complete: {result.get('part_type', 'Unknown')}")
             
             return result
@@ -242,24 +225,10 @@ FITMENT NOTES: [any special compatibility info]"""
             )
             
             response_text = response.text
-            
-            # Parse the response for debug display
-            parsed_result = self._parse_research_response(response_text)
-            
-            self.debug_output["step2_fitment_raw"] = {
-                "make": parsed_result.get('verified_make', ''),
-                "model": parsed_result.get('verified_model', ''),
-                "year_range": parsed_result.get('year_range', ''),
-                "part_description": identification.get('part_type', ''),
-                "confidence": "High" if parsed_result.get('verified_make') else "Medium"
-            }
-            self.debug_output["raw_gemini_responses"].append({
-                "step": "Step 2 Fitment Lookup",
-                "part_number": part_numbers_str,
-                "model": "gemini-2.5-pro",
-                "prompt": prompt[:500],
-                "raw_response": response_text,
-                "timestamp": datetime.now().isoformat()
+            self.debug_output["step2_fitment_raw"] = response_text
+            self.debug_output["gemini_responses"].append({
+                "step": "market_research",
+                "response": response_text
             })
             
             # Parse the response
@@ -369,13 +338,7 @@ FITMENT NOTES: [any special compatibility info]"""
             "confidence_score": 8 if research.get('verified_make') else 5
         }
         
-        self.debug_output["step3_analysis_raw"] = {
-            "part_name": result.get('name', ''),
-            "vehicle_make": result.get('make', ''),
-            "vehicle_model": result.get('model', ''),
-            "vehicle_year": result.get('year_range', ''),
-            "system_version": "v3.0-Gemini-2.5-Pro"
-        }
+        self.debug_output["step3_pricing_raw"] = json.dumps(result, indent=2)
         self.debug_output["workflow_steps"].append(f"Step 3 complete: Generated listing for {ebay_title}")
         
         return result

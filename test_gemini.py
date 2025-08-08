@@ -1,62 +1,32 @@
 #!/usr/bin/env python3
 """
-Test script to verify Gemini API key and check account status
+Direct test of Gemini API to see what's actually happening on production server
 """
 
-import google.generativeai as genai
 import os
-from dotenv import load_dotenv
+import sys
 
-# Load environment variables
-load_dotenv()
+print("=" * 60)
+print("GEMINI API DIRECT TEST")
+print("=" * 60)
 
-def test_gemini_api():
-    """Test Gemini API key and check account status"""
-    
-    # Get API key from environment
+# First, try without dotenv
+print("\n1. Testing WITHOUT dotenv:")
+api_key = os.getenv("GEMINI_API_KEY")
+if api_key:
+    print(f"   Found in system env: {api_key[:10]}...")
+else:
+    print("   Not in system environment")
+
+# Now try with dotenv
+print("\n2. Testing WITH dotenv:")
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("   dotenv loaded successfully")
     api_key = os.getenv("GEMINI_API_KEY")
-    
-    if not api_key:
-        print("❌ No GEMINI_API_KEY found in .env file")
-        return False
-    
-    print(f"[KEY] Found Gemini API Key: {api_key[:10]}...{api_key[-4:]}")
-    
-    try:
-        # Configure Gemini
-        genai.configure(api_key=api_key)
-        
-        # Test with a simple text generation
-        print("[TEST] Testing Gemini API connection...")
-        
-        model = genai.GenerativeModel('gemini-1.5-pro')
-        
-        # Simple test prompt
-        test_prompt = "Hello! Please respond with 'Gemini API is working correctly' and tell me what model you are."
-        
-        response = model.generate_content(test_prompt)
-        
-        print("[SUCCESS] Gemini API Response:")
-        print(f"[RESPONSE] {response.text}")
-        
-        # Try to get model info to check account status
-        print("\n[CHECK] Checking available models...")
-        
-        try:
-            models = genai.list_models()
-            available_models = []
-            
-            for model in models:
-                if 'generateContent' in model.supported_generation_methods:
-                    available_models.append(model.name)
-            
-            print(f"[MODELS] Available models: {len(available_models)}")
-            for model_name in available_models[:5]:  # Show first 5
-                print(f"   - {model_name}")
-            
-            if len(available_models) > 5:
-                print(f"   ... and {len(available_models) - 5} more")
-            
+    if api_key:
+        print(f"   Found after dotenv: {api_key[:10]}...")
             # Check for premium models (indicates paid account)
             premium_indicators = ['gemini-1.5-pro', 'gemini-pro-vision', 'gemini-ultra']
             has_premium = any(premium in str(available_models) for premium in premium_indicators)
