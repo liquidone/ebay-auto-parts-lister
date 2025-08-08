@@ -723,8 +723,8 @@ Be extremely precise with year ranges. If unsure, indicate lower confidence rath
 Focus on OEM fitment data, not aftermarket compatibility.
 """
             
-            # Use Gemini for part number-based fitment lookup
-            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            # Use Gemini 2.5 Pro for part number-based fitment lookup (better accuracy)
+            model = genai.GenerativeModel('gemini-2.5-pro')
             generation_config = {
                 'temperature': 0.1,  # Low temperature for factual accuracy
                 'top_p': 0.8,
@@ -737,8 +737,19 @@ Focus on OEM fitment data, not aftermarket compatibility.
             if not response or not response.text:
                 raise Exception("Empty fitment response from Gemini")
             
+            # CAPTURE RAW GEMINI FITMENT RESPONSE FOR DEBUG
+            raw_response = response.text.strip()
+            self._debug_gemini_responses.append({
+                'step': 'Step 2 Fitment Lookup',
+                'prompt': fitment_prompt,
+                'raw_response': raw_response,
+                'part_number': primary_part_number,
+                'timestamp': datetime.now().isoformat()
+            })
+            print(f"🔍 DEBUG: Raw Gemini Fitment Response: {raw_response}")
+            
             # Parse JSON response
-            response_text = response.text.strip()
+            response_text = raw_response
             if response_text.startswith('```json'):
                 response_text = response_text[7:-3].strip()
             elif response_text.startswith('```'):
