@@ -542,7 +542,7 @@ async def root():
                 }
                 
                 resultDiv.innerHTML = `
-                    <h3 style="color: #007bff; margin-bottom: 15px;">${result.part_name}</h3>
+                    <h3 style="color: #007bff; margin-bottom: 15px;">${result.ebay_title || result.seo_title || result.part_name}</h3>
                     ${imageGallery}
                     <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
                         <h4 style="color: #495057; margin-bottom: 10px;">🚀 SEO Optimization Status</h4>
