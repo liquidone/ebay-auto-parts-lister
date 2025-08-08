@@ -301,8 +301,8 @@ Based on a THOROUGH review of ALL images and the scenario above, perform the fol
 
 Please be thorough and accurate, as this information will be used to create a real eBay listing."""
         
-        # Store prompt in debug output
-        self.debug_output["step2_dynamic_prompt"]["prompt_preview"] = prompt[:500]
+        # Store FULL prompt in debug output (no truncation)
+        self.debug_output["step2_dynamic_prompt"]["prompt_preview"] = prompt  # Show full prompt
         self.debug_output["step2_dynamic_prompt"]["full_prompt_length"] = len(prompt)
         
         return prompt
@@ -332,18 +332,18 @@ Please be thorough and accurate, as this information will be used to create a re
             response = self.model.generate_content(content)
             response_text = response.text
             
-            # Add to debug output
+            # Add FULL content to debug output (no truncation)
             self.debug_output["raw_api_responses"].append({
                 "step": "Gemini Analysis",
                 "model": "gemini-2.5-pro",
-                "prompt": prompt[:500],
-                "raw_response": response_text,
+                "prompt": prompt,  # Full prompt, not truncated
+                "raw_response": response_text,  # Full response
                 "images_count": len(image_paths),
                 "timestamp": datetime.now().isoformat()
             })
             
             self.debug_output["step3_gemini_analysis"] = {
-                "response_preview": response_text[:1000],
+                "response_preview": response_text,  # Full response, not truncated
                 "response_length": len(response_text)
             }
             

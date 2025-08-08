@@ -3,6 +3,10 @@
 .env.local
 .env.production
 
+# Credentials
+vision-credentials.json
+*.json
+
 # Python
 __pycache__/
 *.py[cod]
