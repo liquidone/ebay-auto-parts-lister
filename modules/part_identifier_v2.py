@@ -420,8 +420,11 @@ Please be thorough and accurate, as this information will be used to create a re
         """
         Parse Gemini's response into structured data
         """
+        # Clean up markdown formatting
+        clean_text = response_text.replace('**', '').replace('*', '')
+        
         result = {
-            "name": "",
+            "name": "Auto Part",
             "ebay_title": "",
             "description": "",
             "category": "eBay Motors > Parts & Accessories",
@@ -434,20 +437,37 @@ Please be thorough and accurate, as this information will be used to create a re
             "make": "",
             "model": "",
             "year_range": "",
+            "color": "",
+            "weight": "",
+            "dimensions": "",
+            "is_oem": False,
             "key_features": [],
             "fitment_notes": "",
             "confidence_score": 7
         }
         
-        # Extract part type
-        if "Part Type:" in response_text:
-            part_type_match = re.search(r'Part Type:\s*([^\n]+)', response_text)
-            if part_type_match:
-                result["name"] = part_type_match.group(1).strip()
+        # Extract part identification (first line often contains the main identification)
+        lines = clean_text.split('\n')
+        if lines:
+            first_line = lines[0].strip()
+            # Remove common prefixes
+            for prefix in ['This is a', 'This appears to be a', 'The part is a', 'Part Type:', 'PART TYPE:']:
+                if first_line.startswith(prefix):
+                    first_line = first_line[len(prefix):].strip()
+            # Take the first sentence as the part name
+            if '.' in first_line:
+                result["name"] = first_line.split('.')[0].strip()
+            elif ',' in first_line:
+                result["name"] = first_line.split(',')[0].strip()
+            else:
+                result["name"] = first_line[:80] if len(first_line) > 80 else first_line
+        
+        # Build description from the full response (cleaned)
+        result["description"] = clean_text[:500] if len(clean_text) > 500 else clean_text
         
         # Extract part numbers
-        if "Part Number" in response_text:
-            pn_section = re.search(r'Part Numbers?:([^*]+?)(?:\n\*|\n\n)', response_text, re.DOTALL)
+        if "Part Number" in clean_text:
+            pn_section = re.search(r'Part Numbers?:([^:]+?)(?:\n[A-Z]|\n\n|$)', clean_text, re.DOTALL)
             if pn_section:
                 # Look for part numbers in various formats
                 pn_text = pn_section.group(1)
@@ -455,10 +475,13 @@ Please be thorough and accurate, as this information will be used to create a re
                 result["part_numbers"] = list(set(part_nums))[:5]  # Keep top 5 unique
         
         # Extract brand
-        if "Brand" in response_text or "Manufacturer" in response_text:
-            brand_match = re.search(r'(?:Brand|Manufacturer):\s*([^\n]+)', response_text)
+        if "Brand" in clean_text or "Manufacturer" in clean_text:
+            brand_match = re.search(r'(?:Brand|Manufacturer):\s*([^\n]+)', clean_text)
             if brand_match:
-                result["brand"] = brand_match.group(1).strip()
+                brand = brand_match.group(1).strip()
+                # Clean up brand name
+                if brand and not brand.startswith('Unknown'):
+                    result["brand"] = brand.split('.')[0].strip()  # Take first part before period
         
         # Extract fitment
         if "Vehicle Fitment:" in response_text:
@@ -494,24 +517,48 @@ Please be thorough and accurate, as this information will be used to create a re
                 result["price_range"]["low"] = min(prices)
                 result["price_range"]["high"] = max(prices)
         
-        # Extract eBay title
-        if "Optimized Title:" in response_text:
-            title_match = re.search(r'Optimized Title:\s*([^\n]+)', response_text)
-            if title_match:
-                result["ebay_title"] = title_match.group(1).strip()[:80]
-        elif result["name"]:
-            # Build title from components
-            title_parts = []
-            if result["make"]:
-                title_parts.append(result["make"])
-            if result["model"]:
-                title_parts.append(result["model"])
-            if result["year_range"]:
-                title_parts.append(result["year_range"])
-            title_parts.append(result["name"])
-            if result["part_numbers"]:
-                title_parts.append(result["part_numbers"][0])
-            result["ebay_title"] = " ".join(title_parts)[:80]
+        # Extract price
+        if "Price" in response_text:
+            price_match = re.search(r'\$(\d+)(?:-\$?(\d+))?', response_text)
+            if price_match:
+                low = int(price_match.group(1))
+                high = int(price_match.group(2)) if price_match.group(2) else low + 50
+                result["price"] = (low + high) // 2
+                result["price_range"] = {"low": low, "high": high}
+        
+        # Build eBay title (SEO optimized)
+        title_parts = []
+        
+        # Add year/make/model if available
+        if result["year_range"]:
+            title_parts.append(result["year_range"])
+        if result["make"]:
+            title_parts.append(result["make"])
+        if result["model"]:
+            title_parts.append(result["model"])
+            
+        # Add the part name (cleaned)
+        if result["name"]:
+            # Remove redundant info already in make/model
+            clean_name = result["name"]
+            for word in title_parts:
+                clean_name = clean_name.replace(word, "").strip()
+            if clean_name:
+                title_parts.append(clean_name)
+        
+        # Add part number if available
+        if result["part_numbers"] and len(" ".join(title_parts)) < 60:
+            title_parts.append(result["part_numbers"][0])
+            
+        # Add OEM if applicable
+        if result.get("is_oem"):
+            title_parts.append("OEM")
+        
+        result["ebay_title"] = " ".join(title_parts)[:80].strip()  # eBay title limit
+        
+        # If no title was built, use the part name
+        if not result["ebay_title"]:
+            result["ebay_title"] = result["name"][:80] if result["name"] else "Auto Part"
         
         # Extract keywords for features
         if "Keywords" in response_text or "Suggested Keywords" in response_text:
@@ -524,7 +571,7 @@ Please be thorough and accurate, as this information will be used to create a re
         description_parts = [
             f"**{result['name']}**",
             "",
-            "**Part Details:**"
+{{ ... }}
         ]
         
         if result["part_numbers"]:
