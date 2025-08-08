@@ -32,6 +32,9 @@ class PartIdentifier:
             self.demo_mode = True
             print("⚠️ Running in demo mode - no Gemini API key found")
         
+        # Initialize debug tracking for raw Gemini prompts and responses
+        self._debug_gemini_responses = []
+        
         # Part categories for classification
         self.part_categories = [
             "Body Parts", "Engine Components", "Interior Parts", 
@@ -75,6 +78,9 @@ class PartIdentifier:
         """Use AI to analyze multiple images of the same auto part"""
         try:
             if self.ai_client == "gemini":
+                # Reset debug tracking for this analysis
+                self._debug_gemini_responses = []
+                
                 print(f"\n🚀 STARTING MULTI-STEP GEMINI WORKFLOW")
                 print(f"📸 Processing {len(encoded_images)} images")
                 
@@ -132,6 +138,7 @@ class PartIdentifier:
                     'step2_fitment_raw': fitment_data,
                     'step3_analysis_raw': analysis.copy(),
                     'extracted_part_numbers': part_numbers_list,
+                    'raw_gemini_responses': self._debug_gemini_responses,  # RAW PROMPTS AND RESPONSES
                     'workflow_steps': [
                         'Step 1: Hybrid OCR (Cloud Vision + Gemini)',
                         'Step 2: Part Number Fitment Lookup',
