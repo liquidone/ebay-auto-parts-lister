@@ -48,7 +48,7 @@ class PartIdentifier:
             "extracted_part_numbers": []
         }
 
-    async def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
+    def identify_part_from_multiple_images(self, image_paths: List[str]) -> Dict:
         """
         Identify auto part from multiple images using simplified, effective prompting
         Based on the working Gemini prompt that achieves high accuracy
@@ -69,13 +69,13 @@ class PartIdentifier:
                     encoded_images.append(image_file.read())
             
             # Step 1: Identify the Item (Simple, Direct Approach)
-            step1_result = await self._step1_identify_item(encoded_images)
+            step1_result = self._step1_identify_item(encoded_images)
             
             # Step 2: Research Market Value
-            step2_result = await self._step2_research_market(step1_result, encoded_images)
+            step2_result = self._step2_research_market(step1_result, encoded_images)
             
             # Step 3: Generate Final Report
-            final_result = await self._step3_final_report(step1_result, step2_result)
+            final_result = self._step3_final_report(step1_result, step2_result)
             
             # Calculate processing time
             processing_time = (datetime.now() - start_time).total_seconds()
@@ -99,7 +99,7 @@ class PartIdentifier:
                 "debug_output": self.debug_output
             }
 
-    async def _step1_identify_item(self, images: List[bytes]) -> Dict:
+    def _step1_identify_item(self, images: List[bytes]) -> Dict:
         """
         Step 1: Simple, direct identification
         Focus on: brand, type, style, color, unique characteristics, fitment data
@@ -183,7 +183,7 @@ CONDITION: [assessment]"""
                 "condition": "Used"
             }
 
-    async def _step2_research_market(self, identification: Dict, images: List[bytes]) -> Dict:
+    def _step2_research_market(self, identification: Dict, images: List[bytes]) -> Dict:
         """
         Step 2: Research market value and validate fitment
         Use part numbers to find accurate fitment and pricing
@@ -282,7 +282,7 @@ FITMENT NOTES: [any special compatibility info]"""
                 "fitment_notes": ""
             }
 
-    async def _step3_final_report(self, identification: Dict, research: Dict) -> Dict:
+    def _step3_final_report(self, identification: Dict, research: Dict) -> Dict:
         """
         Step 3: Generate final eBay listing with all information
         """

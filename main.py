@@ -918,7 +918,7 @@ async def process_images(files: list[UploadFile] = File(...)):
     try:
         # Use clean, consolidated part identification system
         print(f"🔍 Starting part identification with {len(uploaded_files)} images")
-        part_info = await part_identifier.identify_part_from_multiple_images(uploaded_files)
+        part_info = part_identifier.identify_part_from_multiple_images(uploaded_files)
         print(f"✅ Part identification complete: {part_info.get('part_name', 'Unknown')}")
         
         # Get competitive pricing from eBay sold listings
