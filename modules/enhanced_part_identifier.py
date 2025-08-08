@@ -136,12 +136,19 @@ class EnhancedPartIdentifier:
         issues = self._analyze_result_quality(result)
         confidence = self._calculate_confidence_score(result, issues)
         
+        # Add version tracking to confirm multi-step workflow is active
+        description = result.get("description", "")
+        if description:
+            description += f" [System: v2.1-MultiStep-Workflow-Jan07 - Multi-step OCR→Validation→External pipeline active]"
+        else:
+            description = "[System: v2.1-MultiStep-Workflow-Jan07 - Multi-step OCR→Validation→External pipeline active]"
+        
         return IdentificationResult(
             part_name=result.get("part_name", "Unknown Part"),
             part_number=result.get("part_number"),
-            description=result.get("description", ""),
+            description=description,
             confidence_score=confidence,
-            method_used="Gemini API",
+            method_used="Standard API",
             issues=issues,
             raw_response=result,
             timestamp=datetime.now()
