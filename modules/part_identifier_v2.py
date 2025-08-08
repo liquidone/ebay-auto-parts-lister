@@ -84,6 +84,26 @@ class PartIdentifier:
         """
         start_time = datetime.now()
         
+        # CRITICAL FIX: Reset debug output for each new identification request
+        # This prevents accumulation of workflow steps from previous calls
+        self.debug_output = {
+            "api_status": {
+                "demo_mode": self.demo_mode,
+                "vision_api_configured": bool(self.vision_client),
+                "gemini_api_configured": bool(self.model),
+                "api_client": "gemini" if self.model else None,
+                "api_key_configured": bool(self.model)
+            },
+            "workflow_steps": [],
+            "step1_vision_ocr": {},
+            "step2_dynamic_prompt": {},
+            "step3_gemini_analysis": {},
+            "raw_api_responses": [],
+            "raw_gemini_responses": [],
+            "extracted_part_numbers": [],
+            "timing": {}
+        }
+        
         # DEBUG: Track API calls to find duplicate issue
         import traceback
         print(f"\n{'='*60}")
