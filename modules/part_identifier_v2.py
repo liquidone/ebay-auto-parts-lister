@@ -84,6 +84,17 @@ class PartIdentifier:
         """
         start_time = datetime.now()
         
+        # DEBUG: Track API calls to find duplicate issue
+        import traceback
+        print(f"\n{'='*60}")
+        print(f"🔴 GEMINI API CALL INITIATED at {start_time.isoformat()}")
+        print(f"📸 Number of images: {len(image_paths)}")
+        print(f"📁 Image paths: {image_paths}")
+        print(f"🔍 Call stack:")
+        for line in traceback.format_stack()[-5:-1]:  # Show last 4 stack frames
+            print(f"  {line.strip()}")
+        print(f"{'='*60}\n")
+        
         if self.demo_mode:
             return self._get_demo_response()
         
@@ -364,9 +375,13 @@ Please be thorough and accurate, as this information will be used to create a re
             
             # Send to Gemini with proper format
             try:
+                print(f"\n🚀 ACTUAL GEMINI API CALL at {datetime.now().isoformat()}")
+                print(f"   Images sent: {len(encoded_images)}")
+                print(f"   Prompt length: {len(prompt)} chars")
                 print(f"DEBUG: About to call model.generate_content")
                 response = self.model.generate_content(content_parts)
                 print(f"DEBUG: Response received, type: {type(response)}")
+                print(f"✅ GEMINI API CALL COMPLETED at {datetime.now().isoformat()}\n")
                 response_text = response.text
                 print(f"DEBUG: Response text extracted, length: {len(response_text)}")
             except Exception as e:
