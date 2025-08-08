@@ -483,9 +483,12 @@ Please be thorough and accurate, as this information will be used to create a re
         optimized_title_match = re.search(r'\*?\*?Optimized Title:\*?\*?\s*([^\n]+)', response_text, re.IGNORECASE)
         if optimized_title_match:
             optimized_title = optimized_title_match.group(1).strip().replace('**', '').replace('*', '')
-            # Remove quotes if present
-            optimized_title = optimized_title.strip('"').strip("'")
-            result["ebay_title"] = optimized_title[:80]  # eBay title limit
+            # Remove quotes and backticks if present
+            optimized_title = optimized_title.strip('"').strip("'").strip('`')
+            # Ensure title is within eBay's 80 character limit
+            if len(optimized_title) > 80:
+                optimized_title = optimized_title[:77] + "..."  # Leave room for ellipsis
+            result["ebay_title"] = optimized_title
             print(f"DEBUG: Extracted Optimized Title: {result['ebay_title']}")
         
         # Look for "PART TYPE:" or similar
