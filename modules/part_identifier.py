@@ -104,6 +104,10 @@ class PartIdentifier:
                 # POST-PROCESSING: Traditional database validation (fallback)
                 analysis = await self._validate_part_identification(analysis)
                 
+                # Add version tracking to confirm new multi-step workflow is running
+                analysis['system_version'] = 'v2.1-MultiStep-Workflow-Jan07'
+                analysis['notes'] = f"{analysis.get('notes', '')} [System: Multi-step OCR→Validation→External workflow active]"
+                
                 return analysis
                 
             elif self.ai_client == "openai":
