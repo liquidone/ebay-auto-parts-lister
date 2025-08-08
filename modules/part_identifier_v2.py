@@ -5,7 +5,14 @@ import re
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import google.generativeai as genai
-from google.cloud import vision
+
+# Try to import Vision API - make it optional
+try:
+    from google.cloud import vision
+    VISION_AVAILABLE = True
+except ImportError:
+    VISION_AVAILABLE = False
+    print("WARNING: google-cloud-vision not available, Vision OCR will be disabled")
 
 # Try to load .env file if dotenv is available
 try:
@@ -19,18 +26,26 @@ class PartIdentifier:
     def __init__(self):
         """Initialize the Part Identifier with Google Vision OCR and Gemini 2.5 Pro"""
         
-        # Initialize Google Vision API client
-        self.vision_client = None
-        vision_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        if vision_creds and os.path.exists(vision_creds):
+        # Initialize Vision API client
+        if VISION_AVAILABLE:
             try:
-                self.vision_client = vision.ImageAnnotatorClient()
-                print("Google Vision API client initialized successfully")
+                # Check if credentials are set
+                if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+                    self.vision_client = vision.ImageAnnotatorClient()
+                    self.vision_available = True
+                    print("Google Vision API initialized successfully")
+                else:
+                    self.vision_client = None
+                    self.vision_available = False
+                    print("WARNING: GOOGLE_APPLICATION_CREDENTIALS not set, Vision OCR will be disabled")
             except Exception as e:
-                print(f"WARNING: Failed to initialize Vision API: {e}")
+                print(f"WARNING: Could not initialize Vision API: {e}")
                 self.vision_client = None
+                self.vision_available = False
         else:
-            print("WARNING: Google Vision API credentials not found")
+            self.vision_client = None
+            self.vision_available = False
+            print("Vision API not available - OCR features disabled")
         
         # Initialize Gemini API
         gemini_key = os.getenv("GEMINI_API_KEY")
@@ -108,11 +123,11 @@ class PartIdentifier:
         self.debug_output["workflow_steps"].append("Step 1: Google Vision OCR on all images")
         ocr_results = []
         
-        if not self.vision_client:
+        if not self.vision_available or not self.vision_client:
             print("Vision API not available, skipping OCR step")
             self.debug_output["step1_vision_ocr"] = {
                 "status": "skipped",
-                "reason": "Vision API not configured"
+                "reason": "Vision API not configured or not available"
             }
             return []
         
@@ -121,8 +136,11 @@ class PartIdentifier:
                 with open(image_path, 'rb') as image_file:
                     content = image_file.read()
                 
-                image = vision.Image(content=content)
-                response = self.vision_client.text_detection(image=image)
+                if VISION_AVAILABLE:
+                    image = vision.Image(content=content)
+                    response = self.vision_client.text_detection(image=image)
+                else:
+                    raise Exception("Vision API not available")
                 texts = response.text_annotations
                 
                 if texts:
