@@ -82,16 +82,24 @@ class PartIdentifier:
                 print(f"\n=== STEP 1: OCR & TEXT EXTRACTION ===")
                 ocr_analysis = await self._step1_ocr_extraction(encoded_images)
                 
-                # STEP 2: Validation and Fitment Research
-                print(f"\n=== STEP 2: VALIDATION & RESEARCH ===")
-                analysis = await self._step2_validation_research(encoded_images, ocr_analysis)
-                
-                # STEP 3: External Pattern Validation
-                print(f"\n=== STEP 3: EXTERNAL VALIDATION ===")
+                # STEP 2: Part Number-Based Fitment Lookup
+                print(f"\n=== STEP 2: PART NUMBER FITMENT LOOKUP ===")
                 part_numbers_list = []
-                if analysis.get('part_numbers'):
-                    part_numbers_list = [pn.strip() for pn in analysis['part_numbers'].split(',') if pn.strip()]
+                if ocr_analysis.get('part_numbers'):
+                    part_numbers_list = [pn.strip() for pn in ocr_analysis['part_numbers'].split(',') if pn.strip()]
                 
+                fitment_data = {}
+                if part_numbers_list:
+                    fitment_data = await self._lookup_fitment_by_part_number(part_numbers_list)
+                else:
+                    print("No part numbers found for fitment lookup")
+                
+                # STEP 3: Context and Description Generation
+                print(f"\n=== STEP 3: CONTEXT & DESCRIPTION ===")
+                analysis = await self._step2_validation_research(encoded_images, ocr_analysis, fitment_data)
+                
+                # STEP 4: External Pattern Validation
+                print(f"\n=== STEP 4: EXTERNAL VALIDATION ===")
                 if part_numbers_list:
                     validation_results = await self._validate_part_numbers_externally(part_numbers_list)
                     analysis = await self._enhanced_post_processing(analysis, validation_results)
@@ -630,6 +638,112 @@ class PartIdentifier:
         except Exception as e:
             print(f"❌ OCR merge failed: {str(e)}, falling back to Gemini only")
             return gemini_result
+
+    async def _lookup_fitment_by_part_number(self, part_numbers: List[str]) -> Dict:
+        """
+        Use part numbers to get accurate fitment data from multiple sources
+        This replicates Desktop Gemini's approach of part number-based validation
+        """
+        if not part_numbers:
+            return {}
+        
+        try:
+            print(f"\n=== PART NUMBER FITMENT LOOKUP ===")
+            print(f"Looking up fitment for part numbers: {part_numbers}")
+            
+            # Use the first valid part number for fitment lookup
+            primary_part_number = None
+            for pn in part_numbers:
+                if pn and len(pn.strip()) >= 5:  # Valid part number format
+                    primary_part_number = pn.strip()
+                    break
+            
+            if not primary_part_number:
+                print("❌ No valid part numbers found for fitment lookup")
+                return {}
+            
+            print(f"🔍 Primary part number for fitment: {primary_part_number}")
+            
+            # Gemini prompt specifically for part number-based fitment lookup
+            fitment_prompt = f"""
+You are an automotive parts expert with access to OEM catalogs and fitment databases.
+
+Based on this specific part number: {primary_part_number}
+
+Provide the EXACT vehicle fitment information. Do NOT guess based on visual appearance.
+Use your knowledge of OEM part number databases to determine:
+
+1. What vehicle make, model, and year range does this part number fit?
+2. Are there any specific trim levels or options required?
+3. What is the exact part description/function?
+
+Part number to research: {primary_part_number}
+
+Respond in JSON format:
+{{
+    "make": "exact vehicle make (e.g., Toyota, Honda, Ford)",
+    "model": "exact vehicle model (e.g., Corolla, Civic, F-150)",
+    "year_range": "exact year range (e.g., 2009-2010, 2015-2018)",
+    "part_description": "specific part name and function",
+    "trim_notes": "any specific trim or option requirements",
+    "confidence": "1-10 based on database certainty",
+    "source": "OEM catalog lookup",
+    "additional_part_numbers": "any related or alternative part numbers"
+}}
+
+Be extremely precise with year ranges. If unsure, indicate lower confidence rather than guessing.
+Focus on OEM fitment data, not aftermarket compatibility.
+"""
+            
+            # Use Gemini for part number-based fitment lookup
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            generation_config = {
+                'temperature': 0.1,  # Low temperature for factual accuracy
+                'top_p': 0.8,
+                'top_k': 40,
+                'max_output_tokens': 512,
+            }
+            
+            response = model.generate_content(fitment_prompt, generation_config=generation_config)
+            
+            if not response or not response.text:
+                raise Exception("Empty fitment response from Gemini")
+            
+            # Parse JSON response
+            response_text = response.text.strip()
+            if response_text.startswith('```json'):
+                response_text = response_text[7:-3].strip()
+            elif response_text.startswith('```'):
+                response_text = response_text[3:-3].strip()
+            
+            try:
+                fitment_data = json.loads(response_text)
+                print(f"✅ Fitment lookup results: {fitment_data}")
+                
+                # Validate and clean the fitment data
+                cleaned_fitment = {
+                    "make": fitment_data.get("make", "").strip(),
+                    "model": fitment_data.get("model", "").strip(),
+                    "year_range": fitment_data.get("year_range", "").strip(),
+                    "part_description": fitment_data.get("part_description", "").strip(),
+                    "confidence": min(10, max(1, int(fitment_data.get("confidence", 5)))),
+                    "method": "part_number_lookup",
+                    "primary_part_number": primary_part_number
+                }
+                
+                print(f"🎯 Final fitment: {cleaned_fitment['make']} {cleaned_fitment['model']} {cleaned_fitment['year_range']}")
+                print(f"📊 Confidence: {cleaned_fitment['confidence']}/10")
+                
+                return cleaned_fitment
+                
+            except json.JSONDecodeError as e:
+                print(f"❌ Fitment JSON parsing error: {e}")
+                print(f"Raw response: {response_text}")
+                return {}
+                
+        except Exception as e:
+            print(f"❌ Part number fitment lookup failed: {str(e)}")
+            return {}
 
     async def _validate_part_numbers_externally(self, part_numbers: List[str]) -> Dict:
         """External validation layer - verify part numbers against web sources (Gemini's recommendation)"""
@@ -1279,10 +1393,10 @@ Be extremely careful with part number OCR - accuracy is critical.
                 "ocr_confidence": 1
             }
     
-    async def _step2_validation_research(self, encoded_images: list, ocr_data: Dict) -> Dict:
+    async def _step2_validation_research(self, encoded_images: list, ocr_data: Dict, fitment_data: Dict = None) -> Dict:
         """
-        Step 2: Use OCR results to perform validation and fitment research
-        Cross-reference part numbers against automotive databases
+        Step 3: Generate context and description using OCR + fitment data
+        Uses accurate part number-based fitment data to override visual guessing
         """
         try:
             # Prepare images for Gemini
@@ -1290,20 +1404,38 @@ Be extremely careful with part number OCR - accuracy is critical.
             for encoded_image in encoded_images:
                 image_data = base64.b64decode(encoded_image)
                 image = Image.open(io.BytesIO(image_data))
-                image = await self._preprocess_image_for_gemini(image)
+                processed_image_data = await self._preprocess_image_for_gemini(image_data)
+                image = Image.open(io.BytesIO(processed_image_data))
                 images.append(image)
             
+            # Build context with fitment data if available
+            fitment_context = ""
+            if fitment_data and fitment_data.get('make'):
+                fitment_context = f"""
+CONFIRMED FITMENT DATA (from part number lookup):
+- Vehicle: {fitment_data.get('make', '')} {fitment_data.get('model', '')} {fitment_data.get('year_range', '')}
+- Part Description: {fitment_data.get('part_description', '')}
+- Confidence: {fitment_data.get('confidence', 0)}/10
+- Method: Part number database lookup
+
+USE THIS FITMENT DATA - do not guess or override with visual analysis.
+"""
+            
             prompt = f"""
-Using the part number(s) and brand information extracted from the image, perform research to determine the item's make, model, and year fitment.
+You are an expert eBay auto parts reseller. Generate a professional listing description using the provided OCR and fitment data.
 
 OCR Results from Step 1:
 - Part Numbers: {ocr_data.get('part_numbers', '')}
 - Brand Names: {ocr_data.get('brand_names', '')}
 - Visible Text: {ocr_data.get('visible_text', '')}
 
-Now perform validation and research:
-1. Identify the primary part number from the OCR results
-2. Cross-reference this part number with automotive databases
+{fitment_context}
+
+Generate a professional eBay listing with accurate fitment information:
+1. Use the CONFIRMED FITMENT DATA above if provided (do not guess years/models)
+2. Create a professional part description
+3. Include condition assessment from visual inspection
+4. Generate an SEO-optimized eBay title
 3. Determine vehicle compatibility and fitment
 4. Validate the part type and function
 
