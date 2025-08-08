@@ -478,6 +478,36 @@ async def root():
                     return;
                 }
                 
+                // Extract Gemini 2.5 Pro data from debug output for enhanced accuracy
+                let enhancedResult = {...result};
+                if (result.debug_output && result.debug_output.step3_gemini_analysis) {
+                    const geminiData = result.debug_output.step3_gemini_analysis;
+                    // Override with accurate Gemini 2.5 Pro data
+                    enhancedResult.part_name = geminiData.part_name || result.part_name;
+                    enhancedResult.seo_title = geminiData.seo_title || geminiData.part_name || result.seo_title;
+                    enhancedResult.description = geminiData.description || result.description;
+                    enhancedResult.make = geminiData.make || result.make;
+                    enhancedResult.model = geminiData.model || result.model;
+                    enhancedResult.year_range = geminiData.year_range || result.year_range;
+                    enhancedResult.condition = geminiData.condition || result.condition;
+                    enhancedResult.color = geminiData.color || result.color;
+                    enhancedResult.is_oem = geminiData.is_oem !== undefined ? geminiData.is_oem : result.is_oem;
+                    enhancedResult.part_numbers = geminiData.part_numbers || result.part_numbers;
+                    enhancedResult.weight = geminiData.weight || result.weight;
+                    enhancedResult.dimensions = geminiData.dimensions || result.dimensions;
+                    
+                    // Use Gemini's price range if available
+                    if (geminiData.price_range) {
+                        const priceMatch = geminiData.price_range.match(/\$?(\d+)/);
+                        if (priceMatch) {
+                            enhancedResult.estimated_price = priceMatch[1];
+                        }
+                    }
+                }
+                
+                // Use enhanced result for display
+                result = enhancedResult;
+                
                 resultsDiv.innerHTML = '<h2>Auto Part Identification Results</h2>';
                 
                 const resultDiv = document.createElement('div');

@@ -358,13 +358,41 @@ Please be thorough and accurate, as this information will be used to create a re
             self.debug_output["raw_api_responses"].append(gemini_response_data)
             self.debug_output["raw_gemini_responses"].append(gemini_response_data)
             
+            # Parse the response first
+            result = self._parse_gemini_response(response_text)
+            
+            # Map Gemini parsed data to frontend expected fields
+            # This ensures the main result object has all the right fields
+            result["part_name"] = result.get("name", "")
+            result["seo_title"] = result.get("ebay_title", "")
+            result["part_number"] = result.get("part_numbers", [""])[0] if result.get("part_numbers") else ""
+            result["estimated_price"] = result.get("price", 100)
+            result["weight_lbs"] = result.get("weight", "")
+            result["dimensions_inches"] = result.get("dimensions", "")
+            
+            # Add parsed data to debug output for frontend use
             self.debug_output["step3_gemini_analysis"] = {
                 "response_preview": response_text,  # Full response, not truncated
-                "response_length": len(response_text)
+                "response_length": len(response_text),
+                # Add all parsed fields for frontend to use
+                "part_name": result.get("name", ""),
+                "seo_title": result.get("ebay_title", ""),
+                "description": result.get("description", ""),
+                "part_numbers": result.get("part_numbers", []),
+                "make": result.get("make", ""),
+                "model": result.get("model", ""),
+                "year_range": result.get("year_range", ""),
+                "condition": result.get("condition", "Used"),
+                "color": result.get("color", ""),
+                "is_oem": result.get("is_oem", False),
+                "brand": result.get("brand", ""),
+                "price": result.get("price", 0),
+                "price_range": f"${result.get('price_range', {}).get('low', 0)}-${result.get('price_range', {}).get('high', 0)}",
+                "weight": result.get("weight", ""),
+                "dimensions": result.get("dimensions", ""),
+                "fitment_notes": result.get("fitment_notes", ""),
+                "vehicles": result.get("vehicles", "")
             }
-            
-            # Parse the response
-            result = self._parse_gemini_response(response_text)
             
             return result
             
