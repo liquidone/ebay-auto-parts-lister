@@ -16,19 +16,17 @@ load_dotenv()
 
 from modules.image_processor_simple import ImageProcessor
 from modules.part_identifier import PartIdentifier
-from modules.enhanced_part_identifier import EnhancedPartIdentifier
 from modules.feature_flags import feature_flags, is_enhanced_ui_enabled
 from modules.database import Database
 from modules.ebay_api import eBayAPI
 from modules.ebay_pricing import eBayPricing
 from modules.ebay_compliance import eBayComplianceHandler
 
-app = FastAPI(title="eBay Auto Parts Lister", version="1.0.0")
+app = FastAPI(title="eBay Auto Parts Lister", version="3.0.0")
 
-# Initialize modules
+# Initialize modules - Clean, consolidated architecture
 image_processor = ImageProcessor()
-part_identifier = PartIdentifier()
-enhanced_part_identifier = EnhancedPartIdentifier()
+part_identifier = PartIdentifier()  # Single, clean implementation
 database = Database()
 ebay_api = eBayAPI()
 ebay_pricing = eBayPricing()
@@ -674,18 +672,10 @@ async def process_images(files: list[UploadFile] = File(...)):
     
     # Analyze all images together to identify the single auto part
     try:
-        # Use enhanced identification system
-        main_image_path = uploaded_files[0]
-        
-        # Check if enhanced identification is enabled
-        if is_enhanced_ui_enabled():
-            identification_result = await enhanced_part_identifier.identify_part(main_image_path)
-            part_info = identification_result.to_dict()
-            print(f"Enhanced identification result: {identification_result.method_used} - Confidence: {identification_result.confidence_score:.2f}")
-        else:
-            # Fallback to original method
-            part_info = await part_identifier.identify_part_from_multiple_images(uploaded_files)
-            print(f"Standard identification from {len(uploaded_files)} images: {part_info}")
+        # Use clean, consolidated part identification system
+        print(f"🔍 Starting part identification with {len(uploaded_files)} images")
+        part_info = await part_identifier.identify_part_from_multiple_images(uploaded_files)
+        print(f"✅ Part identification complete: {part_info.get('part_name', 'Unknown')}")
         
         # Get competitive pricing from eBay sold listings
         part_number = part_info.get("part_numbers", part_info.get("part_number", ""))
@@ -963,16 +953,16 @@ async def enhanced_identify_part(file: UploadFile = File(...), force_fallback: b
             content = await file.read()
             buffer.write(content)
         
-        # Use enhanced identification
-        result = await enhanced_part_identifier.identify_part(file_path, user_triggered_fallback=force_fallback)
+        # Use clean, consolidated identification system
+        result = await part_identifier.identify_part_from_multiple_images([file_path])
         
         return {
             "success": True,
-            "result": result.to_dict(),
-            "recommendations": {
-                "needs_fallback": result.needs_fallback(),
-                "confidence_level": "high" if result.confidence_score > 0.8 else "medium" if result.confidence_score > 0.5 else "low",
-                "suggested_actions": _get_suggested_actions(result)
+            "result": result,
+            "system_info": {
+                "version": result.get("system_version", "v3.0-Consolidated-Clean"),
+                "workflow": "3-step OCR→Research→Validation",
+                "timestamp": result.get("workflow_timestamp", "")
             }
         }
         

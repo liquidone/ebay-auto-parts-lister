@@ -3,33 +3,26 @@ import json
 import base64
 import io
 import re
-import requests
 import time
 from typing import Dict, List
 from PIL import Image
 import google.generativeai as genai
+from datetime import datetime
 
 class PartIdentifier:
     def __init__(self):
-        # Try to initialize Gemini client, fall back to OpenAI, then demo mode
+        # Initialize Gemini client only - clean, simple architecture
         gemini_key = os.getenv("GEMINI_API_KEY")
-        openai_key = os.getenv("OPENAI_API_KEY")
         
         if gemini_key:
             genai.configure(api_key=gemini_key)
             self.ai_client = "gemini"
             self.demo_mode = False
-            print("Using Google Gemini for AI analysis")
-        elif openai_key:
-            import openai
-            self.openai_client = openai.OpenAI(api_key=openai_key)
-            self.ai_client = "openai"
-            self.demo_mode = False
-            print("Using OpenAI for AI analysis")
+            print("✅ Using Google Gemini for AI analysis")
         else:
             self.ai_client = None
             self.demo_mode = True
-            print("Running in demo mode - no AI API key found")
+            print("⚠️ Running in demo mode - no Gemini API key found")
         
         # Part categories for classification
         self.part_categories = [
@@ -74,23 +67,19 @@ class PartIdentifier:
         """Use AI to analyze multiple images of the same auto part"""
         try:
             if self.ai_client == "gemini":
-                # MULTI-STEP WORKFLOW: Following Gemini's desktop methodology
-                # Step 1: Pure OCR, Step 2: Validation & Research, Step 3: External validation
-                analysis = await self._analyze_with_gemini(encoded_images)
+                print(f"\n🚀 STARTING MULTI-STEP GEMINI WORKFLOW")
+                print(f"📸 Processing {len(encoded_images)} images")
                 
-                # Continue with existing Stage 2 and Stage 3 processing
-                # STAGE 2: If Make/Model/Year are missing or generic, run focused extraction
-                if self._needs_fitment_extraction(analysis):
-                    print(f"\n=== STAGE 2: FOCUSED FITMENT EXTRACTION ===")
-                    enhanced_analysis = await self._extract_fitment_data(encoded_images, analysis)
-                    if enhanced_analysis:
-                        analysis.update(enhanced_analysis)
-                        print(f"✅ Enhanced with fitment data: {enhanced_analysis.get('make', 'N/A')} {enhanced_analysis.get('model', 'N/A')} {enhanced_analysis.get('year_range', 'N/A')}")
-                    else:
-                        print(f"❌ Stage 2 fitment extraction failed")
-                    print(f"=== END STAGE 2 ===\n")
+                # STEP 1: Pure OCR and Text Extraction
+                print(f"\n=== STEP 1: OCR & TEXT EXTRACTION ===")
+                ocr_analysis = await self._step1_ocr_extraction(encoded_images)
                 
-                # STAGE 3: External validation layer (Gemini's recommendation)
+                # STEP 2: Validation and Fitment Research
+                print(f"\n=== STEP 2: VALIDATION & RESEARCH ===")
+                analysis = await self._step2_validation_research(encoded_images, ocr_analysis)
+                
+                # STEP 3: External Pattern Validation
+                print(f"\n=== STEP 3: EXTERNAL VALIDATION ===")
                 part_numbers_list = []
                 if analysis.get('part_numbers'):
                     part_numbers_list = [pn.strip() for pn in analysis['part_numbers'].split(',') if pn.strip()]
@@ -101,19 +90,19 @@ class PartIdentifier:
                 else:
                     print("No part numbers found for external validation")
                 
-                # POST-PROCESSING: Traditional database validation (fallback)
+                # FINAL: Database validation (fallback)
                 analysis = await self._validate_part_identification(analysis)
                 
-                # Add version tracking to confirm new multi-step workflow is running
-                analysis['system_version'] = 'v2.1-MultiStep-Workflow-Jan07'
-                analysis['notes'] = f"{analysis.get('notes', '')} [System: Multi-step OCR→Validation→External workflow active]"
+                # Add version tracking and debug info
+                analysis['system_version'] = 'v3.0-Consolidated-Clean'
+                analysis['workflow_timestamp'] = datetime.now().isoformat()
+                analysis['notes'] = f"{analysis.get('notes', '')} [System: Clean 3-step OCR→Research→Validation workflow - {datetime.now().strftime('%H:%M:%S')}]"
                 
+                print(f"\n✅ WORKFLOW COMPLETE - Version: v3.0-Consolidated-Clean")
                 return analysis
                 
-            elif self.ai_client == "openai":
-                return await self._analyze_with_openai(encoded_images)
             else:
-                raise Exception("No AI client configured")
+                raise Exception("Gemini API key required - OpenAI support removed for simplicity")
         except Exception as e:
             print(f"Error in AI analysis: {str(e)}")
             return {
