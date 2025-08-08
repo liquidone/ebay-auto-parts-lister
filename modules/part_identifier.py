@@ -958,6 +958,207 @@ class PartIdentifier:
             "confidence_score": 1,
             "color": "Unknown",
             "is_oem": False,
-            "ebay_title": "Auto Part - See Description",
-            "analysis_method": "basic_fallback"
+            "ebay_title": "Auto Part - Manual Verification Required"
         }
+    
+    async def _step1_ocr_extraction(self, encoded_images: list) -> Dict:
+        """
+        Step 1: Pure OCR and part number extraction
+        Focus solely on accurate text transcription
+        """
+        try:
+            # Prepare images for Gemini
+            images = []
+            for encoded_image in encoded_images:
+                image_data = base64.b64decode(encoded_image)
+                image = Image.open(io.BytesIO(image_data))
+                image = await self._preprocess_image_for_gemini(image)
+                images.append(image)
+            
+            prompt = """
+Analyze this image and identify all brand names and part numbers visible on the item. 
+Be specific and transcribe the text as accurately as possible.
+
+Focus on:
+- All visible part numbers (be extremely precise with OCR)
+- Brand names and manufacturer markings
+- Any model numbers or codes
+- Text on labels, stickers, or molded into the part
+
+Respond in JSON format:
+{
+    "visible_text": "all text you can see",
+    "part_numbers": "all part numbers found, comma-separated",
+    "brand_names": "all brand/manufacturer names found",
+    "labels_and_markings": "text from labels, stickers, molded text",
+    "ocr_confidence": "1-10 based on text clarity"
+}
+
+Be extremely careful with part number OCR - accuracy is critical.
+            """
+            
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            generation_config = {
+                'temperature': 0.0,  # Maximum determinism for OCR
+                'top_p': 0.8,
+                'top_k': 40,
+                'max_output_tokens': 512,
+            }
+            
+            content = [prompt] + images
+            response = model.generate_content(content, generation_config=generation_config)
+            
+            if not response or not response.text:
+                raise Exception("Empty OCR response from Gemini")
+            
+            # Parse JSON response
+            response_text = response.text.strip()
+            if response_text.startswith('```json'):
+                response_text = response_text[7:-3].strip()
+            elif response_text.startswith('```'):
+                response_text = response_text[3:-3].strip()
+            
+            try:
+                ocr_result = json.loads(response_text.strip())
+                print(f" Step 1 OCR Results: {ocr_result}")
+                return ocr_result
+            except json.JSONDecodeError as e:
+                print(f"OCR JSON parsing error: {e}")
+                return {
+                    "visible_text": response_text,
+                    "part_numbers": "",
+                    "brand_names": "",
+                    "labels_and_markings": "",
+                    "ocr_confidence": 1
+                }
+                
+        except Exception as e:
+            print(f"Step 1 OCR extraction error: {e}")
+            return {
+                "visible_text": "",
+                "part_numbers": "",
+                "brand_names": "",
+                "labels_and_markings": "",
+                "ocr_confidence": 1
+            }
+    
+    async def _step2_validation_research(self, encoded_images: list, ocr_data: Dict) -> Dict:
+        """
+        Step 2: Use OCR results to perform validation and fitment research
+        Cross-reference part numbers against automotive databases
+        """
+        try:
+            # Prepare images for Gemini
+            images = []
+            for encoded_image in encoded_images:
+                image_data = base64.b64decode(encoded_image)
+                image = Image.open(io.BytesIO(image_data))
+                image = await self._preprocess_image_for_gemini(image)
+                images.append(image)
+            
+            prompt = f"""
+Using the part number(s) and brand information extracted from the image, perform research to determine the item's make, model, and year fitment.
+
+OCR Results from Step 1:
+- Part Numbers: {ocr_data.get('part_numbers', '')}
+- Brand Names: {ocr_data.get('brand_names', '')}
+- Visible Text: {ocr_data.get('visible_text', '')}
+
+Now perform validation and research:
+1. Identify the primary part number from the OCR results
+2. Cross-reference this part number with automotive databases
+3. Determine vehicle compatibility and fitment
+4. Validate the part type and function
+
+Respond in JSON format:
+{{
+    "primary_part_number": "most reliable part number from OCR",
+    "part_name": "specific part name and function",
+    "make": "vehicle make",
+    "model": "vehicle model if determinable", 
+    "year_range": "year range in YYYY-YYYY format",
+    "part_type": "specific part category",
+    "condition": "condition assessment",
+    "confidence_score": "1-10 based on validation certainty",
+    "validation_notes": "research findings and cross-references",
+    "ebay_title": "optimized eBay title with make/model/year/part",
+    "description": "detailed eBay description"
+}}
+
+Focus on accuracy - cross-reference the part number against known automotive part databases.
+            """
+            
+            model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            generation_config = {
+                'temperature': 0.1,  # Low temperature for research accuracy
+                'top_p': 0.9,
+                'top_k': 40,
+                'max_output_tokens': 1024,
+            }
+            
+            content = [prompt] + images
+            response = model.generate_content(content, generation_config=generation_config)
+            
+            if not response or not response.text:
+                raise Exception("Empty validation response from Gemini")
+            
+            # Parse JSON response
+            response_text = response.text.strip()
+            if response_text.startswith('```json'):
+                response_text = response_text[7:-3].strip()
+            elif response_text.startswith('```'):
+                response_text = response_text[3:-3].strip()
+            
+            try:
+                validation_result = json.loads(response_text.strip())
+                print(f" Step 2 Validation Results: {validation_result}")
+                
+                # Convert to our expected format
+                analysis = {
+                    "part_name": validation_result.get("part_name", "Unknown Part"),
+                    "part_numbers": validation_result.get("primary_part_number", ocr_data.get('part_numbers', '')),
+                    "make": validation_result.get("make", ""),
+                    "model": validation_result.get("model", ""),
+                    "year_range": validation_result.get("year_range", ""),
+                    "condition": validation_result.get("condition", "Used"),
+                    "confidence_score": validation_result.get("confidence_score", 5),
+                    "key_features": validation_result.get("validation_notes", ""),
+                    "ebay_title": validation_result.get("ebay_title", "Auto Part"),
+                    "description": validation_result.get("description", ""),
+                    "notes": f"Multi-step analysis: OCR + Validation. {validation_result.get('validation_notes', '')}"
+                }
+                
+                return analysis
+                
+            except json.JSONDecodeError as e:
+                print(f"Validation JSON parsing error: {e}")
+                # Fallback using OCR data
+                return {
+                    "part_name": "Unknown Part",
+                    "part_numbers": ocr_data.get('part_numbers', ''),
+                    "make": "",
+                    "model": "",
+                    "year_range": "",
+                    "condition": "Used",
+                    "confidence_score": 3,
+                    "key_features": ocr_data.get('visible_text', ''),
+                    "ebay_title": "Auto Part - Needs Research",
+                    "description": f"OCR found: {ocr_data.get('visible_text', '')}",
+                    "notes": f"Validation parsing failed: {str(e)}"
+                }
+                
+        except Exception as e:
+            print(f"Step 2 validation research error: {e}")
+            return {
+                "part_name": "Analysis Failed",
+                "part_numbers": ocr_data.get('part_numbers', ''),
+                "make": "",
+                "model": "",
+                "year_range": "",
+                "condition": "Used",
+                "confidence_score": 1,
+                "key_features": "",
+                "ebay_title": "Auto Part - Analysis Failed",
+                "description": f"Step 2 failed: {str(e)}",
+                "notes": f"Step 2 error: {str(e)}"
+            }
