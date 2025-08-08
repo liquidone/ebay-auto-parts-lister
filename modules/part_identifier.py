@@ -377,13 +377,20 @@ class PartIdentifier:
                 "timestamp": datetime.now().isoformat()
             })
             
-            response = model.generate_content(content, generation_config=generation_config)
-            
-            print(f"\n=== GEMINI RESPONSE ===")
-            print(f"Response text length: {len(response.text)} characters")
-            print(f"Full Gemini Response:")
-            print(response.text)
-            print(f"=== END GEMINI RESPONSE ===")
+            try:
+                response = model.generate_content(content, generation_config=generation_config)
+                
+                print(f"\n=== GEMINI RESPONSE ===")
+                print(f"Response text length: {len(response.text)} characters")
+                print(f"Full Gemini Response:")
+                print(response.text)
+                print(f"=== END GEMINI RESPONSE ===")
+            except Exception as api_error:
+                print(f"❌ GEMINI API ERROR: {str(api_error)}")
+                print(f"❌ Error type: {type(api_error).__name__}")
+                # Store error in debug response
+                self._debug_gemini_responses[-1]["error"] = str(api_error)
+                raise
             
             # CAPTURE RAW RESPONSE FOR DEBUG PANEL
             if self._debug_gemini_responses:
@@ -857,7 +864,12 @@ Focus on OEM fitment data, not aftermarket compatibility.
                 'max_output_tokens': 512,
             }
             
-            response = model.generate_content(fitment_prompt, generation_config=generation_config)
+            try:
+                response = model.generate_content(fitment_prompt, generation_config=generation_config)
+            except Exception as api_error:
+                print(f"❌ GEMINI API ERROR in Fitment: {str(api_error)}")
+                self._debug_gemini_responses[-1]["error"] = str(api_error)
+                raise
             
             if not response or not response.text:
                 raise Exception("Empty fitment response from Gemini")
