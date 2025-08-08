@@ -422,6 +422,52 @@ class PartIdentifier:
             print(f"Error in Stage 2 comprehensive extraction: {str(e)}")
             return {}
     
+    async def _preprocess_image_for_gemini(self, image_data: bytes) -> bytes:
+        """
+        Preprocess image for optimal Gemini OCR accuracy
+        Based on Gemini's recommendations: image sharpening, resizing, normalizing
+        """
+        try:
+            from PIL import Image, ImageEnhance, ImageFilter
+            import io
+            
+            # Load image from bytes
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Convert to RGB if necessary
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Resize if too large (Gemini has size limits)
+            max_size = 2048
+            if max(image.size) > max_size:
+                ratio = max_size / max(image.size)
+                new_size = tuple(int(dim * ratio) for dim in image.size)
+                image = image.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Enhance contrast for better OCR
+            enhancer = ImageEnhance.Contrast(image)
+            image = enhancer.enhance(1.2)
+            
+            # Enhance sharpness for text clarity
+            enhancer = ImageEnhance.Sharpness(image)
+            image = enhancer.enhance(1.1)
+            
+            # Apply slight unsharp mask for text clarity
+            image = image.filter(ImageFilter.UnsharpMask(radius=1, percent=100, threshold=3))
+            
+            # Convert back to bytes
+            output = io.BytesIO()
+            image.save(output, format='JPEG', quality=95, optimize=True)
+            processed_data = output.getvalue()
+            
+            print(f"📸 Image preprocessed: {len(image_data)} → {len(processed_data)} bytes, size: {image.size}")
+            return processed_data
+            
+        except Exception as e:
+            print(f"⚠️ Image preprocessing failed: {str(e)}, using original")
+            return image_data
+
     async def _validate_part_numbers_externally(self, part_numbers: List[str]) -> Dict:
         """External validation layer - verify part numbers against web sources (Gemini's recommendation)"""
         try:
