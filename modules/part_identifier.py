@@ -163,7 +163,46 @@ class PartIdentifier:
                 "vehicles": "Unknown",
                 "price": 0,
                 "condition": "Used",
-                "error": str(e)
+                "error": str(e),
+                # Add debug output for error cases
+                "debug_output": {
+                    "step1_ocr_raw": {
+                        "raw_text": f"ERROR: {str(e)}",
+                        "confidence_score": "Error",
+                        "cloud_vision_text": "Analysis failed",
+                        "gemini_ocr_text": "Analysis failed"
+                    },
+                    "step2_fitment_raw": {
+                        "make": "Error",
+                        "model": "Error",
+                        "year_range": "Error",
+                        "part_description": f"Analysis failed: {str(e)}",
+                        "confidence": "Error"
+                    },
+                    "step3_analysis_raw": {
+                        "part_name": "AI Analysis Failed",
+                        "vehicle_make": "Error",
+                        "vehicle_model": "Error",
+                        "vehicle_year": "Error",
+                        "system_version": "v3.1-Error"
+                    },
+                    "extracted_part_numbers": [],
+                    "raw_gemini_responses": [
+                        {
+                            "step": "Error",
+                            "prompt": "Analysis failed before API call",
+                            "raw_response": f"Error occurred: {str(e)}",
+                            "timestamp": datetime.now().isoformat()
+                        }
+                    ],
+                    "workflow_steps": [
+                        "Step 1: Analysis failed",
+                        f"Error: {str(e)}",
+                        "Check API configuration and try again"
+                    ]
+                },
+                "system_version": "v3.1-Error",
+                "workflow_timestamp": datetime.now().isoformat()
             }
 
     async def _analyze_with_gemini(self, encoded_images: list) -> Dict:
@@ -971,7 +1010,46 @@ Focus on OEM fitment data, not aftermarket compatibility.
             "ebay_title": "2015-2020 Ford F-150 Demo Part Demo-123-456 OEM",
             "compatibility": "Demo compatibility",
             "color": "Black",
-            "is_oem": True
+            "is_oem": True,
+            # Add debug output for demo mode
+            "debug_output": {
+                "step1_ocr_raw": {
+                    "raw_text": "DEMO MODE - No OCR performed",
+                    "confidence_score": "N/A - Demo Mode",
+                    "cloud_vision_text": "Demo mode active",
+                    "gemini_ocr_text": "Demo mode active"
+                },
+                "step2_fitment_raw": {
+                    "make": "Ford",
+                    "model": "F-150",
+                    "year_range": "2015-2020",
+                    "part_description": "Demo auto part",
+                    "confidence": "Demo Mode"
+                },
+                "step3_analysis_raw": {
+                    "part_name": "Demo Mode - Random Auto Part",
+                    "vehicle_make": "Ford",
+                    "vehicle_model": "F-150",
+                    "vehicle_year": "2015-2020",
+                    "system_version": "v3.1-Demo-Mode"
+                },
+                "extracted_part_numbers": ["Demo-123-456"],
+                "raw_gemini_responses": [
+                    {
+                        "step": "Demo Mode",
+                        "prompt": "Demo mode - no actual API calls made",
+                        "raw_response": "This is demo mode. Configure Gemini API key for real analysis.",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                ],
+                "workflow_steps": [
+                    "Demo Mode: No actual processing performed",
+                    "Configure Gemini API key for real analysis",
+                    "Upload images to see actual debug data"
+                ]
+            },
+            "system_version": "v3.1-Demo-Mode",
+            "workflow_timestamp": datetime.now().isoformat()
         }
 
     async def _validate_part_identification(self, analysis: Dict) -> Dict:

@@ -10,7 +10,7 @@ class ImageProcessor:
         self.supported_formats = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp']
         print("Initialized simplified image processor (Pillow only)")
 
-    def process_images(self, image_paths: List[str], output_dir: str = "processed") -> List[str]:
+    def process_images(self, image_paths: List[str], output_dir: str = "static/processed") -> List[str]:
         """Process multiple images with basic enhancement"""
         processed_paths = []
         
