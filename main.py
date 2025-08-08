@@ -448,7 +448,8 @@ async def root():
                     result.images.forEach((img, index) => {
                         const mainBadge = img.is_main ? '<span style="position: absolute; top: 5px; left: 5px; background: #007bff; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">MAIN</span>' : '';
                         const seoBadge = img.seo_optimized ? '<span style="position: absolute; top: 5px; right: 5px; background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">SEO</span>' : '';
-                        const imageSrc = img.processed.includes('_processed') ? `/static/processed/${img.processed}` : `/uploads/${img.original}`;
+                        // Prioritize SEO-optimized images from /static/processed/, fallback to original uploads
+                        const imageSrc = img.seo_optimized && img.processed ? `/static/processed/${img.processed}` : `/uploads/${img.original}`;
                         const borderColor = img.is_main ? '#007bff' : (img.seo_optimized ? '#28a745' : '#ddd');
                         
                         imageGallery += `
