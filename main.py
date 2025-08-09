@@ -681,18 +681,46 @@ async def root():
                     </div>`;
                 }
                 
+                // Add PROMPT AND RESPONSE section (MOST IMPORTANT)
+                if (data.debug_output?.prompt_sent || data.debug_output?.full_response) {
+                    html += `
+                    <div class="debug-section" style="border-left-color: #50fa7b;">
+                        <div class="debug-key" style="color: #50fa7b;">🤖 GEMINI PROMPT & RESPONSE</div>
+                        <div class="debug-value">
+                            ${data.debug_output.scenario_used ? `<div><strong>Scenario:</strong> ${data.debug_output.scenario_used}</div>` : ''}
+                            ${data.debug_output.images_count ? `<div><strong>Images Sent:</strong> ${data.debug_output.images_count}</div>` : ''}
+                            ${data.debug_output.timestamp ? `<div><strong>Timestamp:</strong> ${data.debug_output.timestamp}</div>` : ''}
+                            ${data.debug_output.prompt_sent ? `
+                                <div style="margin-top: 10px;"><strong>PROMPT SENT TO GEMINI:</strong></div>
+                                <pre style="background: #2d2d2d; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 300px; overflow-y: auto; border: 1px solid #50fa7b; color: #f8f8f2;">${data.debug_output.prompt_sent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                            ` : ''}
+                            ${data.debug_output.full_response ? `
+                                <div style="margin-top: 10px;"><strong>GEMINI RESPONSE:</strong></div>
+                                <pre style="background: #2d2d2d; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 300px; overflow-y: auto; border: 1px solid #8be9fd; color: #f8f8f2;">${data.debug_output.full_response.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                            ` : ''}
+                        </div>
+                    </div>`;
+                }
+                
                 // Add Raw API Responses if available
                 if (data.debug_output?.raw_gemini_responses?.length) {
                     html += `
                     <div class="debug-section">
-                        <div class="debug-key">RAW API RESPONSES</div>
+                        <div class="debug-key">RAW API CALL DETAILS</div>
                         <div class="debug-value">
                             ${data.debug_output.raw_gemini_responses.map((resp, i) => 
                                 `<details style="margin-bottom: 10px;">
-                                    <summary>Response ${i+1} (${resp.timestamp || 'No timestamp'})</summary>
-                                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto; max-height: 300px;">
-${JSON.stringify(resp, null, 2)}
-                                    </pre>
+                                    <summary>API Call ${i+1}: ${resp.step || 'Unknown'} (${resp.timestamp || 'No timestamp'})</summary>
+                                    <div style="background: #2d2d2d; padding: 10px; border-radius: 4px; margin-top: 5px;">
+                                        ${resp.scenario ? `<div><strong>Scenario:</strong> ${resp.scenario}</div>` : ''}
+                                        ${resp.api_calls_made ? `<div><strong>API Calls:</strong> ${resp.api_calls_made}</div>` : ''}
+                                        ${resp.vin_used !== undefined ? `<div><strong>VIN Used:</strong> ${resp.vin_used ? 'Yes' : 'No'}</div>` : ''}
+                                        ${resp.ocr_parts_found !== undefined ? `<div><strong>OCR Parts Found:</strong> ${resp.ocr_parts_found}</div>` : ''}
+                                        <div style="margin-top: 10px;"><strong>Full Details:</strong></div>
+                                        <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; overflow: auto; max-height: 200px; color: #f8f8f2; font-size: 11px;">
+${JSON.stringify(resp, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                                        </pre>
+                                    </div>
                                 </details>`
                             ).join('')}
                         </div>

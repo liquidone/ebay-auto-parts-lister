@@ -295,6 +295,7 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             self.debug_output["full_response"] = response_text  # Store the full response
             self.debug_output["scenario_used"] = scenario
             self.debug_output["images_count"] = len(encoded_images)
+            self.debug_output["timestamp"] = datetime.now().isoformat()
             
             # Legacy debug fields for compatibility
             self.debug_output["step1_ocr_raw"] = {
@@ -307,12 +308,13 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             
             self.debug_output["raw_gemini_responses"].append({
                 "step": f"dynamic_analysis_scenario_{scenario}",
-                "prompt": prompt[:1000] + "..." if len(prompt) > 1000 else prompt,
-                "response": response.text,  # Store FULL response
+                "prompt": prompt,  # Store FULL prompt for debugging
+                "response": response_text,  # Store FULL response
                 "api_calls_made": 1,
                 "scenario": scenario,
                 "vin_used": bool(vin_number),
-                "ocr_parts_found": len(part_numbers_found)
+                "ocr_parts_found": len(part_numbers_found),
+                "timestamp": datetime.now().isoformat()
             })
             
             # Parse the comprehensive response
