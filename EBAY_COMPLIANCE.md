@@ -38,9 +38,9 @@ Your application must provide these endpoints that eBay can call:
 
 Once deployed to your VPS, these will be your compliance endpoints:
 
-- **Account Deletion**: `http://143.198.55.193/ebay/account-deletion-notification`
-- **Verification**: `http://143.198.55.193/ebay/verification-challenge`
-- **Status**: `http://143.198.55.193/ebay/compliance-status`
+- **Account Deletion**: `http://143.110.157.23/ebay/account-deletion-notification`
+- **Verification**: `http://143.110.157.23/ebay/verification-challenge`
+- **Status**: `http://143.110.157.23/ebay/compliance-status`
 
 ## How It Works
 
@@ -67,7 +67,7 @@ All compliance notifications are logged to:
 ### Step 1: Deploy Updated Application
 ```bash
 # SSH to your VPS
-ssh root@143.198.55.193
+ssh root@143.110.157.23
 
 # Navigate to app directory
 cd /opt/ebay-auto-parts-lister
@@ -82,15 +82,15 @@ sudo systemctl restart ebay-auto-parts-lister
 ### Step 2: Test Compliance Endpoints
 ```bash
 # Test the compliance status endpoint
-curl http://143.198.55.193/ebay/compliance-status
+curl http://143.110.157.23/ebay/compliance-status
 ```
 
 ### Step 3: Submit to eBay
 1. Go to your eBay Developer Account
 2. Navigate to your application settings
 3. Add these notification URLs:
-   - **Account Deletion URL**: `http://143.198.55.193/ebay/account-deletion-notification`
-   - **Verification URL**: `http://143.198.55.193/ebay/verification-challenge`
+   - **Account Deletion URL**: `http://143.110.157.23/ebay/account-deletion-notification`
+   - **Verification URL**: `http://143.110.157.23/ebay/verification-challenge`
 
 ### Step 4: Request API Key Activation
 1. Submit your compliance implementation
@@ -111,7 +111,7 @@ curl http://143.198.55.193/ebay/compliance-status
 ### Check Endpoint Status
 ```bash
 # Test compliance status
-curl http://143.198.55.193/ebay/compliance-status
+curl http://143.110.157.23/ebay/compliance-status
 
 # Check application logs
 sudo journalctl -u ebay-auto-parts-lister -n 20

@@ -12,7 +12,7 @@ echo "GEMINI_API_KEY=YOUR_API_KEY" > /opt/ebay-auto-parts-lister/.env && chown e
 
 1. SSH into the server:
 ```bash
-ssh root@143.198.55.193
+ssh root@143.110.157.23
 ```
 
 2. Create the .env file:
@@ -43,12 +43,12 @@ systemctl restart ebayapp
 
 1. Copy the setup_api_key.sh script to the server:
 ```bash
-scp setup_api_key.sh root@143.198.55.193:/tmp/
+scp setup_api_key.sh root@143.110.157.23:/tmp/
 ```
 
 2. SSH into the server and run it:
 ```bash
-ssh root@143.198.55.193
+ssh root@143.110.157.23
 chmod +x /tmp/setup_api_key.sh
 /tmp/setup_api_key.sh
 ```
@@ -57,7 +57,7 @@ chmod +x /tmp/setup_api_key.sh
 
 After setting up, check that it's working:
 
-1. Open http://143.198.55.193 in your browser
+1. Open http://143.110.157.23 in your browser
 2. Upload some test images
 3. Click "Process Images"
 4. The debug panel should now show:

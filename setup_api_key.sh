@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Setup script for Gemini API key on production server
-# Run this on the production server (143.198.55.193)
+# Run this on the production server (143.110.157.23)
 
 echo "==================================="
 echo "eBay Auto Parts Lister - API Setup"
@@ -64,7 +64,7 @@ if systemctl is-active --quiet ebayapp; then
     echo ""
     echo "The Gemini API key has been configured."
     echo "You can now test the application at:"
-    echo "http://143.198.55.193"
+    echo "http://143.110.157.23"
     echo ""
     echo "The debug panel should now show:"
     echo "- Gemini API: Configured ✓"

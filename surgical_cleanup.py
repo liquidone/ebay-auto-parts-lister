@@ -161,7 +161,7 @@ def cleanup_project():
     print("="*60)
     print("1. Test the application: python test_api.py")
     print("2. Start the server: python main.py")
-    print("3. Access at: http://143.198.55.193")
+    print("3. Access at: http://143.110.157.23")
     print("4. Commit changes: git add -A && git commit -m 'Surgical cleanup complete'")
     print("\n✅ Cleanup complete! Your project is now clean and organized.")
 

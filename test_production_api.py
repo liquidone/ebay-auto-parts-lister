@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 # Production server URL
-API_URL = "http://143.198.55.193/process-images"
+API_URL = "http://143.110.157.23/process-images"
 
 def test_with_sample_image():
     """Test with a sample image from the web"""
@@ -82,6 +82,6 @@ def test_with_sample_image():
             temp_file.unlink()
 
 if __name__ == "__main__":
-    print("Testing Production API at http://143.198.55.193")
+    print("Testing Production API at http://143.110.157.23")
     print("=" * 50)
     test_with_sample_image()

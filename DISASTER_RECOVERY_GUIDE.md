@@ -12,7 +12,7 @@
 
 ### ✅ **Step 1: Verify Your Live Application**
 Your application is running independently and will survive any local crashes:
-- **URL:** https://143.198.55.193
+- **URL:** https://143.110.157.23
 - **Status:** Live and operational 24/7
 - **VPS:** DigitalOcean droplet (independent of your local machine)
 
@@ -84,8 +84,8 @@ notepad "SESSION_BACKUP_Aug5_2025.md"
 ## 🔑 CRITICAL INFORMATION TO SAVE
 
 ### **VPS Access (WRITE THIS DOWN)**
-- **IP Address:** 143.198.55.193
-- **SSH Command:** `ssh root@143.198.55.193`
+- **IP Address:** 143.110.157.23
+- **SSH Command:** `ssh root@143.110.157.23`
 - **Application Path:** `/opt/ebay-auto-parts-lister`
 - **Service Name:** `ebay-auto-parts-lister`
 
@@ -109,7 +109,7 @@ notepad "SESSION_BACKUP_Aug5_2025.md"
 ### **Verify Everything Still Works:**
 ```bash
 # Test your live application
-curl https://143.198.55.193/ebay/compliance-status
+curl https://143.110.157.23/ebay/compliance-status
 
 # SSH to your VPS
 ssh root@143.198.55.193
@@ -139,7 +139,7 @@ cat SESSION_BACKUP_Aug5_2025.md
 ### **DigitalOcean VPS**
 - **Dashboard:** https://cloud.digitalocean.com/
 - **Droplet:** ebay-auto-parts-lister
-- **IP:** 143.198.55.193
+- **IP:** 143.110.157.23
 
 ### **GitHub Repository**
 - **URL:** https://github.com/liquidone/ebay-auto-parts-lister
@@ -149,7 +149,7 @@ cat SESSION_BACKUP_Aug5_2025.md
 ## 🎯 WHAT SURVIVES ANY CRASH
 
 ### ✅ **Always Available:**
-- **Live Application:** https://143.198.55.193 (VPS independent)
+- **Live Application:** https://143.110.157.23 (VPS independent)
 - **GitHub Code:** Complete source code repository
 - **OneDrive Files:** Cloud-synced project files
 - **Session Backup:** Complete conversation history in markdown
@@ -168,7 +168,7 @@ cat SESSION_BACKUP_Aug5_2025.md
 ## 📱 MOBILE ACCESS (Emergency)
 
 If you only have a phone/tablet:
-1. **Check app status:** Visit https://143.198.55.193
+1. **Check app status:** Visit https://143.110.157.23
 2. **View code:** Browse https://github.com/liquidone/ebay-auto-parts-lister
 3. **Read session:** Access OneDrive files from mobile
 4. **Contact eBay:** Use mobile browser for developer portal
@@ -183,7 +183,7 @@ If you only have a phone/tablet:
 ## 💡 PREVENTION TIPS
 
 1. **Bookmark these URLs:**
-   - https://143.198.55.193 (your app)
+   - https://143.110.157.23 (your app)
    - https://github.com/liquidone/ebay-auto-parts-lister (code)
    - https://developer.ebay.com/support (eBay support)
 
