@@ -5,12 +5,27 @@ All notable changes to the eBay Auto Parts Lister project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2025-08-09
+
+### Fixed
+- Fixed frontend UI not displaying results after image processing
+- Backend now returns response in format expected by frontend: `{success: true, results: [...], debug_output: {...}}`
+- Previously backend was returning single object, but frontend JavaScript expected wrapped structure
+- Error responses also now properly formatted with `success: false` flag
+
 ## [1.0.5] - 2025-08-09
 
 ### Fixed
 - Fixed critical bug: Line 171 was passing undefined `images` instead of `encoded_images` to function
 - The variable created is `encoded_images` (lines 165-168) but we were passing `images` which didn't exist
 - This fixes "name 'images' is not defined" error
+- Backend now successfully processes images with Gemini API and returns real part identification
+
+### Known Issues
+- Frontend UI not updating after successful backend processing (images process but results don't display)
+- SEO processing disabled due to `seo_filename` undefined error
+- Database error: "Error binding parameter 6: type 'list' is not supported"
+- Vision API credentials missing (OCR unavailable but Gemini works without it)
 
 ## [1.0.4] - 2025-08-09
 

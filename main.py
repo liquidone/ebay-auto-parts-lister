@@ -467,14 +467,24 @@ async def process_images(files: list[UploadFile] = File(...)):
             "total_images_processed": len(processed_images)
         }
         
-        return result
+        # Wrap result in expected format for frontend
+        # Frontend expects { success: true, results: [...], debug_output: {...} }
+        return {
+            "success": True,
+            "results": [result],  # Wrap single result in array
+            "debug_output": result.get("debug_output", {})
+        }
         
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
         print(f"Error identifying part from multiple images: {str(e)}")
         print(f"Full traceback:\n{error_details}")
-        return {"error": f"Failed to identify part: {str(e)}"}
+        return {
+            "success": False,
+            "error": f"Failed to identify part: {str(e)}",
+            "results": []
+        }
 
 @app.get("/test-ebay-connection")
 async def test_ebay_connection():
