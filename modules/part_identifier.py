@@ -31,6 +31,13 @@ class PartIdentifier:
         self.vision_client = None
         if VISION_AVAILABLE:
             try:
+                # Ensure credentials path is set
+                if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
+                    creds_path = '/opt/ebay-auto-parts-lister/vision-credentials.json'
+                    if os.path.exists(creds_path):
+                        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
+                        print(f"Set GOOGLE_APPLICATION_CREDENTIALS to {creds_path}")
+                
                 self.vision_client = vision.ImageAnnotatorClient()
                 print("Google Vision API initialized for OCR")
             except Exception as e:
