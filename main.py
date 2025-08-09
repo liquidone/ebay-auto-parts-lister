@@ -637,17 +637,107 @@ async def root():
                     return;
                 }
                 
-                // Handle case where debug_output is missing
+                // Initialize HTML content
+                let html = '';
+                
+                // Add API Status section
+                const apiStatus = data.debug_output?.api_status || {};
+                html += `
+                <div class="debug-section">
+                    <div class="debug-key">API STATUS</div>
+                    <div class="debug-value">
+                        <div><strong>Mode:</strong> ${apiStatus.demo_mode ? 'DEMO' : 'LIVE API'}</div>
+                        <div><strong>Vision API:</strong> ${apiStatus.vision_api_configured ? '✅ Configured' : '❌ Not Configured'}</div>
+                        <div><strong>Gemini API:</strong> ${apiStatus.gemini_api_configured ? '✅ Configured' : '❌ Not Configured'}</div>
+                        <div><strong>API Client:</strong> ${apiStatus.api_client || 'gemini'}</div>
+                    </div>
+                </div>`;
+                
+                // Add Processing Info section
+                if (data.debug_output?.processing_time) {
+                    html += `
+                    <div class="debug-section">
+                        <div class="debug-key">PROCESSING INFO</div>
+                        <div class="debug-value">
+                            <div><strong>Processing Time:</strong> ${data.debug_output.processing_time.toFixed(2)} seconds</div>
+                            ${data.debug_output.system_info?.processing_timestamp ? 
+                                `<div><strong>Timestamp:</strong> ${data.debug_output.system_info.processing_timestamp}</div>` : ''}
+                        </div>
+                    </div>`;
+                }
+                
+                // Add Workflow Steps
+                if (data.debug_output?.workflow_steps?.length) {
+                    html += `
+                    <div class="debug-section">
+                        <div class="debug-key">WORKFLOW STEPS</div>
+                        <div class="debug-value">
+                            <ol style="margin: 0; padding-left: 20px;">
+                                ${data.debug_output.workflow_steps.map(step => 
+                                    `<li style="margin-bottom: 5px;">${step}</li>`
+                                ).join('')}
+                            </ol>
+                        </div>
+                    </div>`;
+                }
+                
+                // Add Raw API Responses if available
+                if (data.debug_output?.raw_gemini_responses?.length) {
+                    html += `
+                    <div class="debug-section">
+                        <div class="debug-key">RAW API RESPONSES</div>
+                        <div class="debug-value">
+                            ${data.debug_output.raw_gemini_responses.map((resp, i) => 
+                                `<details style="margin-bottom: 10px;">
+                                    <summary>Response ${i+1} (${resp.timestamp || 'No timestamp'})</summary>
+                                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto; max-height: 300px;">
+${JSON.stringify(resp, null, 2)}
+                                    </pre>
+                                </details>`
+                            ).join('')}
+                        </div>
+                    </div>`;
+                } else if (data.debug_output?.step1_ocr_raw || data.debug_output?.step2_fitment_raw || data.debug_output?.step3_analysis_raw) {
+                    // Show individual step data if available
+                    ['step1_ocr_raw', 'step2_fitment_raw', 'step3_analysis_raw'].forEach(step => {
+                        if (data.debug_output[step]) {
+                            html += `
+                            <div class="debug-section">
+                                <div class="debug-key">${step.replace(/_/g, ' ').toUpperCase()}</div>
+                                <div class="debug-value">
+                                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto; max-height: 300px;">
+${JSON.stringify(data.debug_output[step], null, 2)}
+                                    </pre>
+                                </div>
+                            </div>`;
+                        }
+                    });
+                }
+                
+                // If we have a raw debug output but couldn't parse it
+                if (data.debug_output && !html) {
+                    html = `
+                    <div class="debug-section">
+                        <div class="debug-key">DEBUG OUTPUT</div>
+                        <div class="debug-value">
+                            <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto; max-height: 300px;">
+${JSON.stringify(data.debug_output, null, 2)}
+                            </pre>
+                        </div>
+                    </div>`;
+                }
+                
+                // If no debug output at all
                 if (!data.debug_output) {
-                    debugContent.innerHTML = `
-                        <div class="debug-section">
-                            <div class="debug-key" style="color: #ffb86c;">⚠️ WARNING</div>
-                            <div class="debug-value">
-                                <p>No debug output was generated by the server.</p>
-                                <p>This might be because:</p>
-                                <ul style="margin: 5px 0 0 15px; padding-left: 15px;">
-                                    <li>The part identifier didn't generate debug information</li>
-                                    <li>The API is running in demo mode</li>
+                    html = `
+                    <div class="debug-section">
+                        <div class="debug-key" style="color: #ffb86c;">⚠️ WARNING</div>
+                        <div class="debug-value">
+                            <p>No debug output was generated by the server.</p>
+                            <p>This might be because:</p>
+                            <ul style="margin: 5px 0 0 15px; padding-left: 15px;">
+                                <li>The part identifier didn't generate debug information</li>
+                                <li>The API is running in demo mode</li>
                                     <li>There was an error during processing</li>
                                 </ul>
                                 <p style="margin-top: 10px;">Check the server logs for more details.</p>
@@ -1412,21 +1502,47 @@ async def process_images(files: list[UploadFile] = File(...)):
         }
         
         # Ensure debug panel has required fields
-        if "debug_output" in result:
-            debug = result["debug_output"]
-            if not isinstance(debug, dict):
-                debug = {"raw_debug_output": str(debug)}
+        if "debug_output" not in result or not result["debug_output"]:
+            result["debug_output"] = {
+                "api_status": {
+                    "demo_mode": part_identifier.demo_mode,
+                    "api_client": "gemini",
+                    "api_key_configured": bool(part_identifier.model),
+                    "vision_api_configured": bool(part_identifier.vision_client),
+                    "gemini_api_configured": bool(part_identifier.model)
+                },
+                "step1_ocr_raw": {},
+                "step2_fitment_raw": {},
+                "step3_analysis_raw": {},
+                "raw_gemini_responses": [],
+                "workflow_steps": ["Processed through main.py endpoint"],
+                "processing_time": 0,
+                "extracted_part_numbers": []
+            }
+        
+        # Ensure debug_output is a dictionary
+        if not isinstance(result["debug_output"], dict):
+            result["debug_output"] = {"raw_debug_output": str(result["debug_output"])}
+        
+        # Initialize api_status if not present
+        if "api_status" not in result["debug_output"]:
+            result["debug_output"]["api_status"] = {}
             
-            # Initialize api_status if not present
-            if "api_status" not in debug:
-                debug["api_status"] = {}
-                
-            # Update api_status with current values
-            debug["api_status"].update({
-                "demo_mode": part_identifier.demo_mode,
-                "vision_api_configured": bool(part_identifier.vision_client),
-                "gemini_api_configured": bool(part_identifier.model)
-            })
+        # Update api_status with current values
+        result["debug_output"]["api_status"].update({
+            "demo_mode": part_identifier.demo_mode,
+            "vision_api_configured": bool(part_identifier.vision_client),
+            "gemini_api_configured": bool(part_identifier.model),
+            "api_client": "gemini",
+            "api_key_configured": bool(part_identifier.model)
+        })
+        
+        # Add system information
+        result["debug_output"]["system_info"] = {
+            "system_version": "v3.1-Debug-Output",
+            "processing_timestamp": datetime.now().isoformat(),
+            "total_images_processed": len(processed_images)
+        }
         
         return result
         
