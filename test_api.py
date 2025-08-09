@@ -1,65 +1,76 @@
 #!/usr/bin/env python3
-"""
-Simple test to check what's really happening with Gemini API
-"""
+"""Test script to verify Gemini API is working"""
 
 import os
 import sys
+from dotenv import load_dotenv
 
-print("=" * 60)
-print("GEMINI API DIRECT TEST")
-print("=" * 60)
+# Load environment variables
+load_dotenv()
 
-# Check environment variable
-print("\nChecking for API key...")
+print("=" * 50)
+print("GEMINI API TEST SCRIPT")
+print("=" * 50)
+
+# Check API key
 api_key = os.getenv("GEMINI_API_KEY")
-
-if not api_key:
-    print("Trying to load from .env file...")
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-        api_key = os.getenv("GEMINI_API_KEY")
-        if api_key:
-            print(f"✅ Found API key from .env: {api_key[:10]}...")
-    except:
-        pass
-
-if not api_key:
-    print("❌ NO API KEY FOUND")
+print(f"\n1. API Key exists: {bool(api_key)}")
+if api_key:
+    print(f"   Key starts with: {api_key[:15]}...")
+else:
+    print("   ERROR: No API key found in environment!")
+    print("   Check your .env file")
     sys.exit(1)
 
-print(f"✅ API key found: {api_key[:10]}...")
-print(f"   Key length: {len(api_key)} chars")
-
-# Test the actual API
-print("\n" + "=" * 60)
-print("TESTING ACTUAL API CALL")
-print("=" * 60)
-
+# Test Gemini API
+print("\n2. Testing Gemini API connection...")
 try:
     import google.generativeai as genai
     genai.configure(api_key=api_key)
-    print("✅ Gemini client configured")
+    model = genai.GenerativeModel('gemini-1.5-pro')
     
-    # Try simple model
-    print("\nTrying gemini-pro model...")
-    model = genai.GenerativeModel('gemini-pro')
-    response = model.generate_content("Say TEST OK")
-    print(f"✅ SUCCESS! Response: {response.text}")
+    # Simple test prompt
+    response = model.generate_content("Say exactly: API_WORKING")
+    print(f"   Response: {response.text.strip()}")
     
+    if "API_WORKING" in response.text:
+        print("   ✓ API is working correctly!")
+    else:
+        print(f"   WARNING: Unexpected response: {response.text}")
+        
 except Exception as e:
-    print(f"❌ FAILED: {e}")
-    
-    # Try different model
-    try:
-        print("\nTrying gemini-1.5-flash model...")
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content("Say TEST OK")
-        print(f"✅ SUCCESS with gemini-1.5-flash! Response: {response.text}")
-    except Exception as e2:
-        print(f"❌ ALSO FAILED: {e2}")
+    print(f"   ERROR: {str(e)}")
+    print(f"   Type: {type(e).__name__}")
 
-print("\n" + "=" * 60)
+# Test with image
+print("\n3. Testing with image...")
+try:
+    from PIL import Image
+    import io
+    
+    # Create a simple test image
+    img = Image.new('RGB', (100, 100), color='red')
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes = img_bytes.getvalue()
+    
+    # Convert to PIL Image for Gemini
+    img_pil = Image.open(io.BytesIO(img_bytes))
+    
+    response = model.generate_content([
+        "What color is this image? Reply with just the color name.",
+        img_pil
+    ])
+    print(f"   Response: {response.text.strip()}")
+    
+    if "red" in response.text.lower():
+        print("   ✓ Image processing works!")
+    else:
+        print(f"   WARNING: Expected 'red', got: {response.text}")
+        
+except Exception as e:
+    print(f"   ERROR: {str(e)}")
+
+print("\n" + "=" * 50)
 print("TEST COMPLETE")
-print("=" * 60)
+print("=" * 50)

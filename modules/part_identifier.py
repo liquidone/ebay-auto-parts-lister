@@ -165,80 +165,84 @@ class PartIdentifier:
 
     def _single_comprehensive_analysis(self, images: List[bytes], ocr_text: str, vin_number: Optional[str]) -> Dict:
         """
-        Single comprehensive Gemini API call that does everything at once
+        Single comprehensive Gemini API call using dynamic scenario-based prompt
         """
-        self.debug_output["workflow_steps"].append("Single comprehensive analysis started")
+        if self.demo_mode:
+            return self._get_demo_response()
         
-        # Determine scenario based on OCR results
-        if ocr_text and ocr_text.strip():
-            # We have OCR text - let Gemini determine if it contains part numbers
-            scenario = "A"
-            ocr_info = f"OCR Results:\n{ocr_text}"
-        else:
-            scenario = "C"
-            ocr_info = ""
-        
-        # Build dynamic prompt based on OCR results
-        prompt = """You are an expert eBay reseller specializing in used auto parts. Your goal is to provide all the necessary information for me to create a profitable eBay listing quickly.
+        try:
+            # Extract part numbers from OCR text if available
+            part_numbers_found = []
+            if ocr_text:
+                # Look for patterns that match part numbers
+                part_numbers_found = re.findall(r'\b[A-Z0-9]{5,}[-A-Z0-9]*\b', ocr_text)
+                # Filter out VIN if it was detected
+                if vin_number:
+                    part_numbers_found = [p for p in part_numbers_found if p != vin_number]
+            
+            # Determine which scenario we're in
+            scenario = "C"  # Default to C (images only)
+            scenario_text = ""
+            
+            if part_numbers_found:
+                scenario = "A"
+                scenario_text = f"\n**SCENARIO A: I have images AND a list of possible part numbers from an OCR scan.**\nMy OCR scan returned the following potential numbers. Please verify which of these are correct by cross-referencing all images, identify the primary part number, and use it for your research.\nOCR Results: {', '.join(part_numbers_found[:10])}\n"
+            elif ocr_text and not part_numbers_found:
+                scenario = "B"
+                scenario_text = "\n**SCENARIO B: I have images, but OCR found NO part numbers.**\nMy OCR scan did not return any usable numbers. Your task will be to identify the part based on its visual characteristics across all images.\n"
+            else:
+                scenario_text = "\n**SCENARIO C: I am only providing images.**\nPlease analyze the images from scratch.\n"
+            
+            # Build the dynamic prompt
+            prompt = f"""You are an expert eBay reseller specializing in used auto parts. Your goal is to provide all the necessary information for me to create a profitable eBay listing quickly.
 
-I have attached multiple images of a single auto part. It is critical that you analyze ALL of them to get a complete understanding of the part and its condition.
-
---- SCENARIO THAT APPLIES ---
-
-"""
-        
-        if scenario == "A":
-            prompt += f"""**SCENARIO A: I have images AND OCR text extracted from them.**
-My OCR scan returned the following text from the images. Please analyze this text to identify any part numbers, brand names, or other relevant information.
-{ocr_info}
-"""
-        else:
-            prompt += """**SCENARIO C: I am only providing images.**
-Please analyze the images from scratch.
-"""
-        
-        # Add VIN information if available
-        if vin_number:
-            prompt += f"""
---- VIN PROVIDED ---
-**VIN from the vehicle the part was removed from: {vin_number}**
-This will dramatically improve fitment accuracy. Use this VIN as the primary source of truth for the source vehicle's identity.
-"""
-        else:
+I have attached {len(images)} images of a single auto part. It is critical that you analyze ALL of them to get a complete understanding of the part and its condition.
+{scenario_text}"""
+            
+            # Add VIN if available
+            if vin_number:
+                prompt += f"\n--- VIN PROVIDED ---\n**VIN: {vin_number}**\nUse this VIN to dramatically improve fitment accuracy.\n"
+            
+            # Add the task instructions
             prompt += """
---- NO VIN AVAILABLE ---
-**No VIN was detected in the images.**
-"""
-        
-        # Add the task section
-        prompt += """
 --- YOUR TASK ---
 
 Based on a THOROUGH review of ALL images and the information I've provided, perform the following steps:
 
 **STEP 1: VISUAL ANALYSIS & IDENTIFICATION**
-1.  **Part Type:** What specific type of auto part is this?
-2.  **Part Numbers:**
-    * For Scenario A: Analyze the OCR text to extract any part numbers. Cross-reference with what's visible in the images. Identify the primary OEM part number.
-    * For Scenario C: Transcribe ALL visible part numbers from the images. If none, state "No part number visible."
-3.  **Brand/Manufacturer:** Identify any visible brands.
-4.  **Condition:** Synthesize the part's overall condition from ALL images. Note any scratches, broken tabs, cracked lenses, rust, or missing components visible across ANY of the photos.
+1. **Part Type:** What specific type of auto part is this?
+2. **Part Numbers:**"""
+            
+            if scenario == "A":
+                prompt += "\n   * Confirm which of the provided numbers are accurate and visible. Identify the primary OEM part number."
+            else:
+                prompt += "\n   * Transcribe ALL visible part numbers. If none, state 'No part number visible.'"
+            
+            if vin_number:
+                prompt += "\n   * Use the VIN to help verify the correct part number for that specific vehicle."
+            
+            prompt += """
+3. **Brand/Manufacturer:** Identify any visible brands.
+4. **Condition:** Synthesize the part's overall condition from ALL images. Note any scratches, broken tabs, cracked lenses, rust, or missing components visible across ANY of the photos.
 
 **STEP 2: FITMENT & COMPATIBILITY RESEARCH**
-1.  **Vehicle Fitment:**
-    * **If a VIN was provided, use it as the primary source of truth for the source vehicle's identity (Year, Make, Model, and Trim).**
-    * Using the primary part number (if available), list all vehicle Makes, Models, and Year range(s) this part fits.
-2.  **Compatibility Notes:** Mention any important details (e.g., "Fits Halogen models only," "For vehicles with 2.4L engine").
+1. **Vehicle Fitment:**"""
+            
+            if vin_number:
+                prompt += "\n   * Use the VIN as the primary source of truth for the source vehicle's identity (Year, Make, Model, and Trim)."
+            
+            prompt += """
+   * Using the primary part number (if available), list all vehicle Makes, Models, and Year range(s) this part fits.
+2. **Compatibility Notes:** Mention any important details (e.g., "Fits Halogen models only," "For vehicles with 2.4L engine").
 
 **STEP 3: PRICING & MARKET ANALYSIS**
-1.  **Price Range:** Provide a suggested "Buy It Now" price range for this part in its current condition on eBay.
-2.  **Competitive Listings (Comps):** Provide 2-3 links to current or recently sold eBay listings.
+1. **Price Range:** Provide a suggested "Buy It Now" price range for this part in its current condition on eBay.
+2. **Competitive Listings (Comps):** Provide 2-3 links to current or recently sold eBay listings.
 
 **STEP 4: EBAY LISTING OPTIMIZATION**
-1.  **Optimized Title:** Generate a keyword-rich eBay title. If the part number is confirmed, include it.
-2.  **Suggested Keywords:** List 5-10 additional keywords a buyer might use."""
-
-        try:
+1. **Optimized Title:** Generate a keyword-rich eBay title. If the part number is confirmed, include it.
+2. **Suggested Keywords:** List 5-10 additional keywords a buyer might use."""
+            
             # Prepare content with images
             content = [prompt]
             for i, img_bytes in enumerate(images):
@@ -270,18 +274,23 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             self.debug_output["step3_analysis_raw"] = "Included in single call"
             
             self.debug_output["raw_gemini_responses"].append({
-                "step": "Single Comprehensive Analysis",
-                "model": "gemini-2.5-pro",
-                "prompt": prompt[:500],
-                "raw_response": response_text,
-                "timestamp": datetime.now().isoformat(),
-                "api_calls_made": 1  # ONLY ONE CALL!
+                "step": f"dynamic_analysis_scenario_{scenario}",
+                "response": response.text[:500] + "..." if len(response.text) > 500 else response.text,
+                "api_calls_made": 1,
+                "scenario": scenario,
+                "vin_used": bool(vin_number),
+                "ocr_parts_found": len(part_numbers_found)
             })
             
             # Parse the comprehensive response
             result = self._parse_comprehensive_response(response_text)
             
-            self.debug_output["workflow_steps"].append(f"Single analysis complete: {result.get('part_name', 'Unknown')}")
+            self.debug_output["workflow_steps"].append(f"Step 3: Gemini Analysis (Scenario {scenario})")
+            if vin_number:
+                self.debug_output["workflow_steps"].append(f"Using VIN: {vin_number}")
+            if part_numbers_found:
+                self.debug_output["workflow_steps"].append(f"OCR Part Numbers: {', '.join(part_numbers_found[:5])}")
+            
             self.debug_output["extracted_part_numbers"] = result.get('part_numbers', [])
             
             return result
@@ -292,7 +301,7 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             return self._get_fallback_response()
 
     def _parse_comprehensive_response(self, response_text: str) -> Dict:
-        """Parse the comprehensive response from single Gemini call"""
+        """Parse the dynamic scenario-based response format"""
         result = {
             "part_name": "",
             "name": "",  # Add 'name' field for compatibility
@@ -313,171 +322,139 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             "year_range": "",
             "key_features": [],
             "fitment_notes": "",
+            "suggested_keywords": [],
             "confidence_score": 0.85
         }
         
-        # Clean the response text first - remove any leading prompt artifacts
-        clean_text = response_text
-        prompt_starters = ["Of course", "Here is a detailed analysis", "Based on a thorough review"]
-        for starter in prompt_starters:
-            if starter in clean_text:
-                parts = clean_text.split(starter, 1)
-                if len(parts) > 1:
-                    clean_text = parts[1]
-        
-        lines = clean_text.split('\n')
+        lines = response_text.split('\n')
         current_section = ""
+        current_step = ""
         
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             
-            # Detect sections
-            if "PART IDENTIFICATION" in line.upper():
-                current_section = "identification"
-            elif "FITMENT DATA" in line.upper():
-                current_section = "fitment"
-            elif "MARKET ANALYSIS" in line.upper():
-                current_section = "market"
-            elif "EBAY LISTING" in line.upper():
-                current_section = "listing"
+            # Detect main steps
+            if "STEP 1:" in line or "VISUAL ANALYSIS" in line:
+                current_step = "step1"
+                continue
+            elif "STEP 2:" in line or "FITMENT" in line:
+                current_step = "step2"
+                continue
+            elif "STEP 3:" in line or "PRICING" in line or "MARKET ANALYSIS" in line:
+                current_step = "step3"
+                continue
+            elif "STEP 4:" in line or "EBAY LISTING" in line:
+                current_step = "step4"
+                continue
             
-            # Parse based on current section
-            if current_section == "identification":
+            # Parse based on current step
+            if current_step == "step1":
                 if "Part Type:" in line:
                     part_type = line.split("Part Type:", 1)[1].strip()
-                    result["part_name"] = part_type
-                elif "Brand:" in line:
-                    result["brand"] = line.split("Brand:", 1)[1].strip()
-                elif "Part Numbers:" in line or "Part Number:" in line:
-                    numbers = line.split(":", 1)[1].strip()
-                    result["part_numbers"] = [n.strip() for n in numbers.split(",")]
+                    result["part_name"] = part_type.strip('*').strip()
+                    result["name"] = result["part_name"]  # For compatibility
+                elif "Part Number" in line:
+                    # Handle various formats of part number lines
+                    if ":" in line:
+                        numbers_text = line.split(":", 1)[1].strip()
+                        # Extract part numbers, handling various formats
+                        numbers = re.findall(r'\b[A-Z0-9]{4,}[-A-Z0-9]*\b', numbers_text)
+                        if numbers:
+                            result["part_numbers"].extend(numbers)
+                elif "Brand" in line or "Manufacturer" in line:
+                    if ":" in line:
+                        result["brand"] = line.split(":", 1)[1].strip().strip('*').strip()
                 elif "Condition:" in line:
-                    result["condition"] = line.split("Condition:", 1)[1].strip()
-                elif "Characteristics:" in line:
-                    result["key_features"] = [line.split(":", 1)[1].strip()]
+                    result["condition"] = line.split("Condition:", 1)[1].strip().strip('*').strip()
             
-            elif current_section == "fitment":
-                if "Make:" in line:
-                    result["make"] = line.split("Make:", 1)[1].strip()
-                elif "Model:" in line:
-                    result["model"] = line.split("Model:", 1)[1].strip()
-                elif "Year Range:" in line:
-                    result["year_range"] = line.split("Year Range:", 1)[1].strip()
-                elif "Compatible Vehicles:" in line:
-                    result["vehicles"] = line.split(":", 1)[1].strip()
-                elif "OEM/Aftermarket:" in line:
-                    oem_status = line.split(":", 1)[1].strip()
-                    if "OEM" in oem_status.upper():
-                        result["key_features"].append("OEM Part")
+            elif current_step == "step2":
+                if "Vehicle Fitment:" in line or "Fitment:" in line:
+                    # Next lines will contain the fitment info
+                    current_section = "fitment"
+                elif current_section == "fitment" and line and not line.startswith("**"):
+                    # Parse fitment lines
+                    if "Make" in line or "Model" in line or "Year" in line:
+                        # Extract make/model/year info
+                        if not result["vehicles"]:
+                            result["vehicles"] = line
+                        else:
+                            result["vehicles"] += ", " + line
+                    elif result["vehicles"]:
+                        result["vehicles"] += " " + line
+                elif "Compatibility Notes:" in line:
+                    current_section = "compatibility"
+                elif current_section == "compatibility" and line and not line.startswith("**"):
+                    result["fitment_notes"] = line
             
-            elif current_section == "market":
-                if "Market Price Range:" in line:
+            elif current_step == "step3":
+                if "Price Range:" in line or "Buy It Now" in line:
                     try:
-                        price_text = line.split(":", 1)[1].strip()
-                        prices = price_text.replace("$", "").split("-")
-                        if len(prices) == 2:
-                            result["price_range"]["low"] = float(prices[0].strip())
-                            result["price_range"]["high"] = float(prices[1].strip())
-                    except:
-                        pass
-                elif "Average Sold Price:" in line:
-                    try:
-                        price = line.split(":", 1)[1].strip().replace("$", "")
-                        result["market_price"] = float(price)
-                    except:
-                        pass
-                elif "Suggested Buy It Now:" in line:
-                    try:
-                        price = line.split(":", 1)[1].strip().replace("$", "")
-                        result["price"] = float(price)
-                        result["estimated_price"] = float(price)
-                    except:
-                        pass
-                elif "Quick Sale Price:" in line:
-                    try:
-                        price = line.split(":", 1)[1].strip().replace("$", "")
-                        result["quick_sale_price"] = float(price)
+                        # Extract price range
+                        match = re.search(r'\$([0-9,]+)\s*[-–]\s*\$([0-9,]+)', line)
+                        if match:
+                            result["price_range"]["low"] = float(match.group(1).replace(',', ''))
+                            result["price_range"]["high"] = float(match.group(2).replace(',', ''))
+                            # Set average as recommended price
+                            result["price"] = (result["price_range"]["low"] + result["price_range"]["high"]) / 2
+                            result["estimated_price"] = result["price"]
+                            result["market_price"] = result["price"]
+                            result["quick_sale_price"] = result["price_range"]["low"]
                     except:
                         pass
             
-            elif current_section == "listing":
-                if "Title:" in line:
-                    title = line.split("Title:", 1)[1].strip()
+            elif current_step == "step4":
+                if "Optimized Title:" in line:
+                    title = line.split("Optimized Title:", 1)[1].strip().strip('*').strip()
                     result["ebay_title"] = title[:80]  # Limit to 80 chars
-                elif "Category:" in line:
-                    result["category"] = line.split("Category:", 1)[1].strip()
-                elif "Description:" in line:
-                    # Extract only the description value, not the whole response
-                    desc = line.split("Description:", 1)[1].strip()
-                    # Stop at any section markers or prompt artifacts
-                    for marker in ["Key Features:", "**", "###", "SCENARIO:", "CRITICAL:", "YOUR TASK:"]:
-                        if marker in desc:
-                            desc = desc.split(marker)[0].strip()
-                            break
-                    result["description"] = desc
-                elif "Key Features:" in line:
-                    features = line.split("Key Features:", 1)[1].strip()
-                    if features and features not in result["key_features"]:
-                        result["key_features"].append(features)
+                elif "Suggested Keywords:" in line:
+                    keywords = line.split("Suggested Keywords:", 1)[1].strip()
+                    result["suggested_keywords"] = [k.strip() for k in keywords.split(',') if k.strip()]
         
-        # Build final part name if not set
-        if not result["part_name"] and result["make"] and result["model"]:
-            result["part_name"] = f"{result['make']} {result['model']} {result.get('year_range', '')} Part"
         
-        # Ensure 'name' field matches 'part_name' for compatibility
-        result["name"] = result["part_name"]
-        
-        # Build eBay title if not set
-        if not result["ebay_title"]:
-            title_parts = []
-            if result["year_range"]:
-                title_parts.append(result["year_range"])
-            if result["make"]:
-                title_parts.append(result["make"])
-            if result["model"]:
-                title_parts.append(result["model"])
+        # Build description from parsed data if not already set
+        if not result["description"]:
+            desc_parts = []
             if result["part_name"]:
-                title_parts.append(result["part_name"])
+                desc_parts.append(f"This is a {result['part_name']}")
+            if result["brand"]:
+                desc_parts.append(f"manufactured by {result['brand']}")
+            if result["vehicles"]:
+                desc_parts.append(f"compatible with {result['vehicles']}")
+            if result["condition"]:
+                desc_parts.append(f"in {result['condition'].lower()} condition")
             if result["part_numbers"]:
-                title_parts.append(result["part_numbers"][0])
-            result["ebay_title"] = " ".join(title_parts)[:80]
+                desc_parts.append(f"Part numbers: {', '.join(result['part_numbers'])}")
+            if result["fitment_notes"]:
+                desc_parts.append(result["fitment_notes"])
+            
+            if desc_parts:
+                result["description"] = ". ".join(desc_parts) + "."
+            else:
+                result["description"] = "Auto part in good condition. Please verify fitment before purchasing."
         
-        # Clean up description - remove any prompt text that leaked through
-        if result["description"]:
-            # Remove common prompt artifacts and clean up
-            desc = result["description"]
-            
-            # Remove asterisks and excessive formatting
-            desc = desc.replace("**", "").replace("*", "")
-            
-            # Remove prompt artifacts
-            prompt_artifacts = [
-                "SCENARIO:", "CRITICAL:", "YOUR TASK:", "Based on a thorough review",
-                "perform the following steps:", "### STEP", "STEP", "Of course",
-                "Here is a detailed analysis", "This is a", "It typically includes"
-            ]
-            for artifact in prompt_artifacts:
-                if artifact in desc:
-                    # Cut off at the artifact
-                    desc = desc.split(artifact)[0].strip()
-            
-            # If description is too short or seems wrong, build a default one
-            if len(desc) < 20 or desc.startswith("This is a"):
-                desc_parts = []
-                if result["part_name"]:
-                    desc_parts.append(f"Genuine {result['part_name']}")
-                if result["condition"]:
-                    desc_parts.append(f"in {result['condition']} condition")
-                if result["vehicles"]:
-                    desc_parts.append(f"Compatible with: {result['vehicles']}")
-                if desc_parts:
-                    desc = ". ".join(desc_parts) + "."
-                else:
-                    desc = "Auto part in good condition. Please verify fitment before purchasing."
-            
-            result["description"] = desc[:500]  # Limit description length
+        # Ensure vehicles string is populated
+        if not result["vehicles"] and result["make"] and result["model"]:
+            vehicles = f"{result['make']} {result['model']}"
+            if result["year_range"]:
+                vehicles += f" {result['year_range']}"
+            result["vehicles"] = vehicles
+        
+        # Ensure eBay title is set
+        if not result["ebay_title"] and result["part_name"]:
+            title_parts = []
+            if result["brand"]:
+                title_parts.append(result["brand"])
+            title_parts.append(result["part_name"])
+            if result["part_numbers"] and len(result["part_numbers"]) > 0:
+                title_parts.append(result["part_numbers"][0])
+            if result["vehicles"]:
+                # Shorten vehicles for title
+                vehicle_short = result["vehicles"].split(',')[0].strip()
+                if len(vehicle_short) < 30:
+                    title_parts.append(vehicle_short)
+            result["ebay_title"] = " ".join(title_parts)[:80]
         
         # Ensure price fields are set
         if result["price"] > 0:
@@ -486,28 +463,18 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             if result["quick_sale_price"] == 0:
                 result["quick_sale_price"] = result["price"] * 0.8  # 80% for quick sale
         
+        # Set reasonable defaults if prices are missing
+        if result["price"] == 0 and result["price_range"]["high"] > 0:
+            result["price"] = (result["price_range"]["low"] + result["price_range"]["high"]) / 2
+            result["estimated_price"] = result["price"]
+            result["market_price"] = result["price"]
+            result["quick_sale_price"] = result["price"] * 0.85
+        
+        # Determine category based on part type
+        if result["part_name"]:
+            result["category"] = self._determine_category(result["part_name"])
+        
         return result
-
-    def _get_fallback_response(self) -> Dict:
-        """Return fallback response when analysis fails"""
-        return {
-            "part_name": "Unknown Auto Part",
-            "ebay_title": "Auto Part - Needs Identification",
-            "description": "Auto part requiring identification",
-            "category": "Other Auto Parts",
-            "vehicles": "Unknown",
-            "price": 0,
-            "price_range": {"low": 0, "high": 0},
-            "condition": "Used",
-            "part_numbers": [],
-            "brand": "Unknown",
-            "make": "Unknown",
-            "model": "Unknown",
-            "year_range": "Unknown",
-            "key_features": [],
-            "fitment_notes": "",
-            "confidence_score": 0
-        }
 
     def _determine_category(self, part_type: str) -> str:
         """Determine eBay category based on part type"""
