@@ -160,30 +160,43 @@ async def root():
             // Initialize drag and drop functionality
             document.addEventListener('DOMContentLoaded', function() {
                 const uploadArea = document.querySelector('.upload-area');
+                const fileInput = document.getElementById('fileInput');
+                
+                // Make sure the upload area click handler works
+                if (uploadArea && fileInput) {
+                    uploadArea.addEventListener('click', function(e) {
+                        // Don't trigger if clicking on buttons inside
+                        if (e.target.tagName !== 'BUTTON') {
+                            fileInput.click();
+                        }
+                    });
+                }
                 
                 // Drag and drop event handlers
-                uploadArea.addEventListener('dragover', function(e) {
-                    e.preventDefault();
-                    uploadArea.style.borderColor = '#007bff';
-                    uploadArea.style.backgroundColor = '#f0f8ff';
-                });
-                
-                uploadArea.addEventListener('dragleave', function(e) {
-                    e.preventDefault();
-                    uploadArea.style.borderColor = '#ccc';
-                    uploadArea.style.backgroundColor = 'transparent';
-                });
-                
-                uploadArea.addEventListener('drop', function(e) {
-                    e.preventDefault();
-                    uploadArea.style.borderColor = '#ccc';
-                    uploadArea.style.backgroundColor = 'transparent';
+                if (uploadArea) {
+                    uploadArea.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        uploadArea.style.borderColor = '#007bff';
+                        uploadArea.style.backgroundColor = '#f0f8ff';
+                    });
                     
-                    const files = Array.from(e.dataTransfer.files);
-                    if (files.length > 0) {
-                        handleDroppedFiles(files);
-                    }
-                });
+                    uploadArea.addEventListener('dragleave', function(e) {
+                        e.preventDefault();
+                        uploadArea.style.borderColor = '#ccc';
+                        uploadArea.style.backgroundColor = 'transparent';
+                    });
+                    
+                    uploadArea.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        uploadArea.style.borderColor = '#ccc';
+                        uploadArea.style.backgroundColor = 'transparent';
+                        
+                        const files = Array.from(e.dataTransfer.files);
+                        if (files.length > 0) {
+                            handleDroppedFiles(files);
+                        }
+                    });
+                }
             });
             
             function handleFileSelection(input) {
@@ -222,21 +235,33 @@ async def root():
             
             function showImagePreviews() {
                 const uploadArea = document.querySelector('.upload-area');
+                if (!uploadArea) return;
                 
-                uploadArea.innerHTML = `
-                    <div style="background: #d4edda; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
-                        <strong>✅ ${selectedFiles.length} image(s) selected!</strong>
-                        <button onclick="clearFiles()" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin-left: 10px;">Clear</button>
-                    </div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+                // Clear the upload area
+                uploadArea.innerHTML = '';
+                
+                // Add status message
+                const statusDiv = document.createElement('div');
+                statusDiv.style.cssText = 'background: #d4edda; padding: 10px; border-radius: 5px; margin-bottom: 10px;';
+                statusDiv.innerHTML = `
+                    <strong>✅ ${selectedFiles.length} image(s) selected!</strong>
+                    <button onclick="clearFiles()" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; margin-left: 10px; cursor: pointer;">Clear</button>
                 `;
+                uploadArea.appendChild(statusDiv);
+                
+                // Create image grid container
+                const imageGrid = document.createElement('div');
+                imageGrid.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;';
                 
                 selectedFiles.forEach((file, index) => {
                     const imageDiv = document.createElement('div');
                     imageDiv.style.cssText = 'border: 2px solid #007bff; border-radius: 8px; padding: 8px; text-align: center; background: #f8f9fa;';
                     
                     if (index === 0) {
-                        imageDiv.innerHTML = '<div style="background: #007bff; color: white; font-size: 10px; padding: 3px; margin-bottom: 5px;">MAIN IMAGE</div>';
+                        const mainLabel = document.createElement('div');
+                        mainLabel.style.cssText = 'background: #007bff; color: white; font-size: 10px; padding: 3px; margin-bottom: 5px;';
+                        mainLabel.textContent = 'MAIN IMAGE';
+                        imageDiv.appendChild(mainLabel);
                     }
                     
                     const img = document.createElement('img');
@@ -249,10 +274,15 @@ async def root():
                     
                     imageDiv.appendChild(img);
                     imageDiv.appendChild(filename);
-                    uploadArea.querySelector('div:last-child').appendChild(imageDiv);
+                    imageGrid.appendChild(imageDiv);
                 });
                 
-                uploadArea.innerHTML += '</div>';
+                uploadArea.appendChild(imageGrid);
+                
+                // Update UI buttons
+                document.getElementById('processBtn').disabled = false;
+                document.getElementById('processBtn').style.opacity = '1';
+                document.getElementById('clearBtn').style.display = 'inline-block';
             }
             
             function displaySelectedFiles() {
