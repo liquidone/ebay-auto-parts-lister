@@ -50,7 +50,7 @@ async def root():
     # Add cache-busting timestamp
     cache_buster = str(int(time.time()))
     
-    html_content = """
+    html_content = r"""
     <!DOCTYPE html>
     <html>
     <head>
