@@ -278,7 +278,7 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             
             # Prepare content with images
             content = [prompt]
-            for img_bytes in encoded_images:
+            for img_bytes in images:
                 content.append({
                     'mime_type': 'image/jpeg',
                     'data': base64.b64encode(img_bytes).decode('utf-8')
