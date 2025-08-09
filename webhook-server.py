@@ -2,6 +2,7 @@
 """
 Simple webhook server for auto-deployment
 Listens for GitHub webhooks and triggers auto-deployment
+Auto-deploy fixed on 2025-08-08
 """
 
 import json
