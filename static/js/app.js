@@ -149,11 +149,18 @@ function displayResults(results) {
                 <div class="result-details">
                     <p><strong>Part Name:</strong> ${result.part_name || 'Unknown'}</p>
                     <p><strong>Part Number:</strong> ${result.part_number || 'N/A'}</p>
+                    ${result.brand ? `<p><strong>Brand/Manufacturer:</strong> ${result.brand}</p>` : ''}
                     <p><strong>Category:</strong> ${result.category || 'Auto Parts'}</p>
-                    <p><strong>Condition:</strong> ${result.condition || 'Used'}</p>
+                    <p><strong>Condition:</strong> ${result.condition || 'Unknown'}</p>
                     <p><strong>Description:</strong> ${result.description || 'No description available'}</p>
                     ${result.compatibility && result.compatibility.length > 0 ? 
                         `<p><strong>Compatible With:</strong><br>${result.compatibility.join('<br>')}</p>` : ''}
+                    ${result.raw_ocr_text ? `
+                        <details>
+                            <summary><strong>OCR Extracted Text</strong></summary>
+                            <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;">${result.raw_ocr_text}</pre>
+                        </details>
+                    ` : ''}
                 </div>
             </div>
         `;

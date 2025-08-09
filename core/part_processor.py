@@ -50,8 +50,10 @@ class PartProcessor:
                 "part_number": gemini_result.get("part_number", "N/A"),
                 "description": gemini_result.get("description", ""),
                 "category": gemini_result.get("category", "Auto Parts"),
-                "condition": gemini_result.get("condition", "Used"),
+                "condition": gemini_result.get("condition", "Unknown"),
                 "compatibility": gemini_result.get("compatibility", []),
+                "brand": gemini_result.get("brand", ""),
+                "raw_ocr_text": gemini_result.get("raw_ocr_text", vision_result.get("text", "")),
                 "debug": {
                     "vision_labels": vision_result.get("labels", []),
                     "vision_text": vision_result.get("text", ""),
