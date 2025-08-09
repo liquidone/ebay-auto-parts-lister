@@ -5,15 +5,30 @@ All notable changes to the eBay Auto Parts Lister project will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-08-09
+
+### Fixed
+- Fixed critical bug: Line 171 in part_identifier.py was still using `encoded_images` instead of `images`
+- This was causing "name 'encoded_images' is not defined" error during image processing
+
 ## [1.0.2] - 2025-08-09
 
 ### Fixed
 - Added automatic service restart to deploy.sh script after pulling code changes
 - Deploy script now properly reloads the application with new code
+- Fixed `encoded_images` undefined error by using `len(images)` instead (line 304)
+- Added missing `_get_fallback_response` method for graceful error handling
+- Temporarily disabled SEO processing to fix `seo_filename` error
 
 ### Added
 - Created proper deploy.sh script with service restart functionality
 - Auto-update of pip dependencies when requirements.txt changes
+- Fallback response method returns "Unknown Auto Part" when APIs unavailable
+
+### Known Issues
+- Vision API not available (missing credentials file)
+- Database error with list parameter binding (needs investigation)
+- Gemini API working but Vision OCR not providing text input
 
 ## [1.0.1] - 2025-08-09
 

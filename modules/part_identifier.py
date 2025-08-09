@@ -168,7 +168,7 @@ class PartIdentifier:
                     encoded_images.append(image_file.read())
             
             # SINGLE COMPREHENSIVE PROMPT that combines all 3 steps
-            result = self._single_comprehensive_analysis(encoded_images, ocr_text, vin_number)
+            result = self._single_comprehensive_analysis(images, ocr_text, vin_number)
             
             # Calculate processing time
             processing_time = (datetime.now() - start_time).total_seconds()
