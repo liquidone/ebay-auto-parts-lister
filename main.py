@@ -132,11 +132,11 @@ async def root():
         <h1>eBay Auto Parts Lister</h1>
         <div class="main-container">
             <div class="left-panel">
-                <div class="upload-area" onclick="document.getElementById('fileInput').click()" style="cursor: pointer;">
+                <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="handleFileSelection(this)">
+                <div class="upload-area" id="uploadArea" style="cursor: pointer;">
                     <p><strong>🖱️ CLICK HERE TO SELECT IMAGES</strong></p>
                     <p style="font-size: 16px; color: #007bff; margin-top: 10px;">📁 Select up to 24 auto part images</p>
                     <p style="font-size: 12px; color: #666;">Click to browse or drag & drop images here</p>
-                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="handleFileSelection(this)">
                 </div>
                 <div id="fileCount" style="margin: 10px 0; font-weight: bold; color: #007bff;"></div>
                 <button onclick="processImages()" id="processBtn" disabled style="opacity: 0.5;">Process Images</button>
@@ -159,17 +159,24 @@ async def root():
             
             // Initialize drag and drop functionality
             document.addEventListener('DOMContentLoaded', function() {
-                const uploadArea = document.querySelector('.upload-area');
+                const uploadArea = document.getElementById('uploadArea');
                 const fileInput = document.getElementById('fileInput');
                 
                 // Make sure the upload area click handler works
                 if (uploadArea && fileInput) {
+                    console.log('Setting up click handler for upload area');
                     uploadArea.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Upload area clicked');
                         // Don't trigger if clicking on buttons inside
                         if (e.target.tagName !== 'BUTTON') {
+                            console.log('Triggering file input click');
                             fileInput.click();
                         }
                     });
+                } else {
+                    console.error('Upload area or file input not found!');
                 }
                 
                 // Drag and drop event handlers
@@ -234,7 +241,7 @@ async def root():
             }
             
             function showImagePreviews() {
-                const uploadArea = document.querySelector('.upload-area');
+                const uploadArea = document.getElementById('uploadArea');
                 if (!uploadArea) return;
                 
                 // Clear the upload area
@@ -285,14 +292,43 @@ async def root():
                 document.getElementById('clearBtn').style.display = 'inline-block';
             }
             
+            function clearFiles() {
+                selectedFiles = [];
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) fileInput.value = '';
+                
+                // Reset upload area to original state
+                const uploadArea = document.getElementById('uploadArea');
+                if (uploadArea) {
+                    uploadArea.innerHTML = `
+                        <p><strong>🖱️ CLICK HERE TO SELECT IMAGES</strong></p>
+                        <p style="font-size: 16px; color: #007bff; margin-top: 10px;">📁 Select up to 24 auto part images</p>
+                        <p style="font-size: 12px; color: #666;">Click to browse or drag & drop images here</p>
+                    `;
+                }
+                
+                // Update UI
+                const processBtn = document.getElementById('processBtn');
+                const clearBtn = document.getElementById('clearBtn');
+                const results = document.getElementById('results');
+                
+                if (processBtn) {
+                    processBtn.disabled = true;
+                    processBtn.style.opacity = '0.5';
+                }
+                if (clearBtn) {
+                    clearBtn.style.display = 'none';
+                }
+                if (results) {
+                    results.style.display = 'none';
+                }
+            }
+            
             function displaySelectedFiles() {
                 console.log('displaySelectedFiles called with', selectedFiles.length, 'files');
-                const uploadArea = document.querySelector('.upload-area');
+                const uploadArea = document.getElementById('uploadArea');
                 
-                if (!uploadArea) {
-                    console.error('Upload area not found!');
-                    return;
-                }
+                if (!uploadArea) return;
                 
                 if (selectedFiles.length === 0) {
                     // Reset to original state - don't recreate the file input as it already exists
