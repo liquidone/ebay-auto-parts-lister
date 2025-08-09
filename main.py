@@ -1336,6 +1336,11 @@ ${JSON.stringify(data.debug_output, null, 2)}
                 }, 1500);
             }
         </script>
+        
+        <!-- Load external JavaScript files for enhanced UI -->
+        <script src="/static/js/app.js?v="""+ cache_buster + """"></script>
+        <script src="/static/js/debug.js?v="""+ cache_buster + """"></script>
+        <script src="/static/js/upload.js?v="""+ cache_buster + """"></script>
     </body>
     </html>
     """
