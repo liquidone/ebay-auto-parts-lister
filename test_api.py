@@ -57,6 +57,8 @@ try:
     # Convert to PIL Image for Gemini
     img_pil = Image.open(io.BytesIO(img_bytes))
     
+    # Create model instance for image test
+    model = genai.GenerativeModel('gemini-1.5-pro')
     response = model.generate_content([
         "What color is this image? Reply with just the color name.",
         img_pil
