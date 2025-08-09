@@ -70,8 +70,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             data = json.loads(payload.decode('utf-8'))
             
             # Check if this is a push to main branch
-            event = data.get('event')
-            ref = data.get('ref')
+            # GitHub sends the event type in the X-GitHub-Event header
+            event = self.headers.get('X-GitHub-Event', '')
+            ref = data.get('ref', '')
             if event == 'push' and ref == 'refs/heads/main':
                 logging.info("Push to main branch detected - triggering auto-deployment")
                 
