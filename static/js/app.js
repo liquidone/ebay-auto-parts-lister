@@ -147,11 +147,11 @@ function displayResults(results) {
             <div class="result-card">
                 <h3>Image ${index + 1}: ${result.filename}</h3>
                 <div class="result-details">
-                    <p><strong>Part Name:</strong> ${result.part_name}</p>
-                    <p><strong>Part Number:</strong> ${result.part_number}</p>
-                    <p><strong>Category:</strong> ${result.category}</p>
-                    <p><strong>Condition:</strong> ${result.condition}</p>
-                    <p><strong>Description:</strong> ${result.description}</p>
+                    <p><strong>Part Name:</strong> ${result.part_name || 'Unknown'}</p>
+                    <p><strong>Part Number:</strong> ${result.part_number || 'N/A'}</p>
+                    <p><strong>Category:</strong> ${result.category || 'Auto Parts'}</p>
+                    <p><strong>Condition:</strong> ${result.condition || 'Used'}</p>
+                    <p><strong>Description:</strong> ${result.description || 'No description available'}</p>
                     ${result.compatibility && result.compatibility.length > 0 ? 
                         `<p><strong>Compatible With:</strong><br>${result.compatibility.join('<br>')}</p>` : ''}
                 </div>
