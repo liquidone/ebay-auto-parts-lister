@@ -78,6 +78,14 @@ async function handleProcessImages() {
         
         const result = await response.json();
         
+        // Debug logging
+        console.log('API Response:', result);
+        if (result.results && result.results.length > 0) {
+            console.log('First result:', result.results[0]);
+            console.log('Part name type:', typeof result.results[0].part_name);
+            console.log('Part name value:', result.results[0].part_name);
+        }
+        
         if (result.success) {
             displayResults(result.results);
             
