@@ -51,21 +51,23 @@ class GeminiAPI:
         try:
             # Construct the full prompt with vision results
             full_prompt = f"""
-            {prompt}
+            Based on the image analysis results below, identify this auto part.
             
             Vision API Results:
             Labels: {', '.join(vision_result.get('labels', []))}
             Detected Text: {vision_result.get('text', 'None')}
             
-            Please identify this auto part and provide:
-            1. Part name
-            2. Part number (if visible)
-            3. Description
-            4. Category
-            5. Condition
-            6. Compatible vehicles
+            Respond ONLY with a valid JSON object in this exact format:
+            {{
+                "part_name": "name of the part",
+                "part_number": "part number or N/A",
+                "description": "brief description",
+                "category": "category name",
+                "condition": "condition assessment",
+                "compatibility": ["vehicle 1", "vehicle 2"]
+            }}
             
-            Return the response as a JSON object.
+            Do not include any text before or after the JSON object.
             """
             
             # Generate response
@@ -73,13 +75,27 @@ class GeminiAPI:
             
             # Parse JSON response
             try:
-                result = json.loads(response.text)
-            except:
+                # Clean the response text to extract JSON
+                response_text = response.text.strip()
+                
+                # Try to find JSON object in the response
+                if '{' in response_text and '}' in response_text:
+                    json_start = response_text.index('{')
+                    json_end = response_text.rindex('}') + 1
+                    json_str = response_text[json_start:json_end]
+                    result = json.loads(json_str)
+                else:
+                    raise ValueError("No JSON object found in response")
+                    
+            except Exception as parse_error:
                 # Fallback if response isn't valid JSON
+                print(f"Failed to parse Gemini response: {parse_error}")
+                print(f"Raw response: {response.text[:500]}")
+                
                 result = {
                     "part_name": "Unknown Part",
                     "part_number": "N/A",
-                    "description": response.text[:200],
+                    "description": "Unable to identify part from image",
                     "category": "Auto Parts",
                     "condition": "Used",
                     "compatibility": []
