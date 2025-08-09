@@ -245,7 +245,7 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             
             # Prepare content with images
             content = [prompt]
-            for i, img_bytes in enumerate(images):
+            for img_bytes in encoded_images:
                 content.append({
                     'mime_type': 'image/jpeg',
                     'data': base64.b64encode(img_bytes).decode('utf-8')
@@ -264,7 +264,13 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             
             response_text = response.text
             
-            # Store debug data
+            # Store COMPLETE debug data with full prompt and response
+            self.debug_output["prompt_sent"] = prompt  # Store the full prompt
+            self.debug_output["full_response"] = response_text  # Store the full response
+            self.debug_output["scenario_used"] = scenario
+            self.debug_output["images_count"] = len(encoded_images)
+            
+            # Legacy debug fields for compatibility
             self.debug_output["step1_ocr_raw"] = {
                 "raw_text": response_text[:500],
                 "confidence_score": 0.9,
@@ -275,7 +281,8 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             
             self.debug_output["raw_gemini_responses"].append({
                 "step": f"dynamic_analysis_scenario_{scenario}",
-                "response": response.text[:500] + "..." if len(response.text) > 500 else response.text,
+                "prompt": prompt[:1000] + "..." if len(prompt) > 1000 else prompt,
+                "response": response.text,  # Store FULL response
                 "api_calls_made": 1,
                 "scenario": scenario,
                 "vin_used": bool(vin_number),

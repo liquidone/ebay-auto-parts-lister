@@ -651,18 +651,62 @@ async def root():
                     `;
                 }
                 
-                // Step 1: Google Vision OCR
-                if (debug.step1_vision_ocr) {
-                    const ocr = debug.step1_vision_ocr;
+                // PROMPT AND RESPONSE SECTION (NEW - MOST IMPORTANT)
+                if (debug.prompt_sent || debug.full_response) {
+                    debugHtml += `
+                        <div class="debug-section" style="border-left-color: #50fa7b;">
+                            <div class="debug-key" style="color: #50fa7b;">🤖 GEMINI PROMPT & RESPONSE</div>
+                            <div class="debug-value">
+                                ${debug.scenario_used ? `<div><span class="debug-key">Scenario:</span> ${debug.scenario_used}</div>` : ''}
+                                ${debug.images_count ? `<div><span class="debug-key">Images Sent:</span> ${debug.images_count}</div>` : ''}
+                                ${debug.prompt_sent ? `
+                                    <div style="margin-top: 10px;"><span class="debug-key">PROMPT SENT TO GEMINI:</span></div>
+                                    <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 300px; overflow-y: auto; border: 1px solid #50fa7b;">${debug.prompt_sent}</pre>
+                                ` : ''}
+                                ${debug.full_response ? `
+                                    <div style="margin-top: 10px;"><span class="debug-key">GEMINI RESPONSE:</span></div>
+                                    <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 300px; overflow-y: auto; border: 1px solid #8be9fd;">${debug.full_response}</pre>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Raw Gemini Responses (if available)
+                if (debug.raw_gemini_responses && debug.raw_gemini_responses.length > 0) {
+                    debugHtml += `
+                        <div class="debug-section" style="border-left-color: #ff79c6;">
+                            <div class="debug-key" style="color: #ff79c6;">📊 API CALL DETAILS</div>
+                            <div class="debug-value">
+                    `;
+                    debug.raw_gemini_responses.forEach((resp, idx) => {
+                        debugHtml += `
+                            <div style="margin-bottom: 10px; padding: 10px; background: #1a1a1a; border-radius: 4px;">
+                                <div><span class="debug-key">Call #${idx + 1}:</span> ${resp.step}</div>
+                                <div><span class="debug-key">Scenario:</span> ${resp.scenario}</div>
+                                <div><span class="debug-key">VIN Used:</span> ${resp.vin_used ? 'Yes' : 'No'}</div>
+                                <div><span class="debug-key">OCR Parts Found:</span> ${resp.ocr_parts_found}</div>
+                            </div>
+                        `;
+                    });
+                    debugHtml += `
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Step 1: Google Vision OCR (Legacy - keep for compatibility)
+                if (debug.step1_vision_ocr || debug.step1_ocr_raw) {
+                    const ocr = debug.step1_vision_ocr || debug.step1_ocr_raw;
                     debugHtml += `
                         <div class="debug-section" style="border-left-color: #f1fa8c;">
-                            <div class="debug-key" style="color: #f1fa8c;">STEP 1: Google Vision OCR</div>
+                            <div class="debug-key" style="color: #f1fa8c;">STEP 1: OCR EXTRACTION</div>
                             <div class="debug-value">
-                                <div><span class="debug-key">Images Processed:</span> ${ocr.images_processed || 0}</div>
-                                <div><span class="debug-key">OCR Success Count:</span> ${ocr.ocr_success_count || 0}</div>
                                 <div><span class="debug-key">Extracted Part Numbers:</span> ${JSON.stringify(debug.extracted_part_numbers || [])}</div>
-                                <div><span class="debug-key">Combined OCR Text:</span></div>
-                                <pre style="background: #2a2a2a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 150px; overflow-y: auto;">${ocr.combined_text || 'No text extracted'}</pre>
+                                ${ocr.raw_text ? `
+                                    <div><span class="debug-key">OCR Text Preview:</span></div>
+                                    <pre style="background: #2a2a2a; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 11px; max-height: 150px; overflow-y: auto;">${ocr.raw_text || 'No text extracted'}</pre>
+                                ` : ''}
                             </div>
                         </div>
                     `;
