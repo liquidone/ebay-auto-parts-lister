@@ -47,6 +47,7 @@ PORT = 8000
 RELOAD = False  # Set to True for development
 
 # Feature Flags
+DEBUG_MODE = os.getenv("DEBUG_MODE", "true").lower() == "true"
 ENABLE_DEBUG_PANEL = True
 ENABLE_DEMO_MODE = not bool(GOOGLE_API_KEY and GEMINI_API_KEY)
 ENABLE_EBAY_INTEGRATION = bool(EBAY_APP_ID and EBAY_USER_TOKEN)
