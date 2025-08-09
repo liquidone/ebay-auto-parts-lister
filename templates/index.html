@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>eBay Auto Parts Lister</h1>
+    
+    <div class="main-container">
+        <!-- Left Panel: Upload and Results -->
+        <div class="left-panel">
+            <!-- Hidden file input -->
+            <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+            
+            <!-- Upload Area -->
+            <div id="uploadArea" class="upload-area">
+                <p><strong>🖱️ CLICK HERE TO SELECT IMAGES</strong></p>
+                <p>📁 Select up to 24 auto part images</p>
+                <p class="upload-hint">Click to browse or drag & drop images here</p>
+            </div>
+            
+            <!-- File count display -->
+            <div id="fileCount" class="file-count"></div>
+            
+            <!-- Action buttons -->
+            <div class="button-group">
+                <button id="processBtn" class="btn btn-primary" disabled>Process Images</button>
+                <button id="clearBtn" class="btn btn-danger" style="display: none;">Clear All</button>
+                <button id="testEbayBtn" class="btn btn-warning">Test eBay Connection</button>
+            </div>
+            
+            <!-- Results container -->
+            <div id="results" class="results"></div>
+        </div>
+        
+        <!-- Right Panel: Debug Output -->
+        <div class="right-panel">
+            <div id="debugPanel" class="debug-panel" style="display: none;">
+                <h3>🔍 Debug Output</h3>
+                <div id="debugContent">
+                    <p class="debug-placeholder">Debug information will appear here after processing...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <p>Processing images...</p>
+</div>
+{% endblock %}
