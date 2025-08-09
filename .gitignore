@@ -2,13 +2,10 @@
 .env
 .env.local
 .env.production
-.env.*
 
-# API Credentials
+# Credentials
 vision-credentials.json
 *.json
-*credentials*
-*secret*
 
 # Python
 __pycache__/
@@ -16,9 +13,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-venv/
-env/
-ENV/
 build/
 develop-eggs/
 dist/
@@ -31,23 +25,19 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-logs/
-*.log
-
-# Uploads and processed files
-uploads/
-processed/
-static/processed/
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
 # IDE
 .vscode/
@@ -58,17 +48,39 @@ static/processed/
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Large files that can cause git stalling
+static/processed/
+uploads/
+*.jpg
+*.png
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+ehthumbs.db
 Thumbs.db
 
-# Backup files
-*.bak
-*.backup
-backup/
-
-# Test files
+# Project specific
+processed/
+static/processed/
+uploads/
+*.log
 test_images/
-test_*.py
 
-# Deployment scripts
-delete_branches.bat
-prepare_deployment.bat
+# Temporary files
+*.tmp
+*.temp
