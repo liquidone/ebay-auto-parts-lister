@@ -84,6 +84,14 @@ class GeminiAPI:
                     json_end = response_text.rindex('}') + 1
                     json_str = response_text[json_start:json_end]
                     result = json.loads(json_str)
+                    
+                    # Ensure all required fields are present with defaults
+                    result.setdefault("part_name", "Unknown Part")
+                    result.setdefault("part_number", "N/A")
+                    result.setdefault("description", "")
+                    result.setdefault("category", "Auto Parts")
+                    result.setdefault("condition", "Used")
+                    result.setdefault("compatibility", [])
                 else:
                     raise ValueError("No JSON object found in response")
                     
