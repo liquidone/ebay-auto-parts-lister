@@ -201,7 +201,7 @@ class PartIdentifier:
         Single comprehensive Gemini API call using dynamic scenario-based prompt
         """
         if self.demo_mode:
-            return self._get_demo_response()
+            return self._get_demo_response() if hasattr(self, '_get_demo_response') else self._get_fallback_response()
         
         try:
             # Extract part numbers from OCR text if available
@@ -301,7 +301,7 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
             self.debug_output["prompt_sent"] = prompt  # Store the full prompt
             self.debug_output["full_response"] = response_text  # Store the full response
             self.debug_output["scenario_used"] = scenario
-            self.debug_output["images_count"] = len(encoded_images)
+            self.debug_output["images_count"] = len(images)
             self.debug_output["timestamp"] = datetime.now().isoformat()
             
             # Legacy debug fields for compatibility
@@ -518,6 +518,30 @@ Based on a THOROUGH review of ALL images and the information I've provided, perf
         
         return result
 
+    def _get_fallback_response(self):
+        """Return a fallback response when APIs are unavailable"""
+        return {
+            "part_name": "Unknown Auto Part",
+            "part_numbers": [],
+            "brand": "Unknown",
+            "condition": "Used",
+            "vehicles": "Please verify fitment",
+            "description": "Auto part - please verify fitment before purchasing",
+            "ebay_title": "Auto Part - Please Verify Fitment",
+            "price": 45.0,
+            "estimated_price": 45.0,
+            "market_price": 45.0,
+            "quick_sale_price": 35.0,
+            "price_range": {"low": 30.0, "high": 60.0},
+            "category": "Auto Parts",
+            "make": "",
+            "model": "",
+            "year_range": "",
+            "fitment_notes": "Please verify fitment",
+            "suggested_keywords": ["auto", "part", "used"],
+            "confidence_score": 0.0
+        }
+    
     def _determine_category(self, part_type: str) -> str:
         """Determine eBay category based on part type"""
         part_type_lower = part_type.lower()

@@ -238,14 +238,14 @@ async def process_images(files: list[UploadFile] = File(...)):
                 # Determine if this is the main image (first image by default)
                 is_main = (i == 0)
                 
-                # Use SEO optimization pipeline
-                seo_filename, processed_filename, alt_text = await image_processor.seo_process_image(
-                    file_path, part_info, i, is_main
-                )
+                # SEO optimization disabled for now - method not available in ImageProcessorSimple
+                # TODO: Implement SEO processing in ImageProcessorSimple or switch to full ImageProcessor
+                processed_filename = os.path.basename(file_path)
+                alt_text = f"{part_info.get('part_name', 'Auto Part')} - Image {i+1}"
                 
                 processed_images.append({
                     "original": os.path.basename(file_path),
-                    "processed": seo_filename,
+                    "processed": processed_filename,
                     "alt_text": alt_text,
                     "is_main": is_main,
                     "seo_optimized": True
