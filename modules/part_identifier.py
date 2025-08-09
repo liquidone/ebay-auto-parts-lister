@@ -122,15 +122,37 @@ class PartIdentifier:
         """
         start_time = datetime.now()
         
-        # Add to debug workflow
-        self.debug_output["workflow_steps"].append(f"Started processing at {start_time}")
+        # Initialize debug output with current API status
+        self.debug_output = {
+            "api_status": {
+                "demo_mode": self.demo_mode,
+                "api_client": "gemini" if hasattr(self, 'model') and self.model else None,
+                "api_key_configured": bool(os.getenv("GEMINI_API_KEY")),
+                "vision_api_configured": bool(self.vision_client is not None),
+                "gemini_api_configured": bool(hasattr(self, 'model') and self.model is not None)
+            },
+            "step1_ocr_raw": {},
+            "step2_fitment_raw": {},
+            "step3_analysis_raw": {},
+            "raw_gemini_responses": [],
+            "workflow_steps": [f"Started processing at {start_time}"],
+            "processing_time": 0,
+            "extracted_part_numbers": []
+        }
         
         if self.demo_mode:
-            return self._get_demo_response()
+            demo_result = self._get_demo_response()
+            demo_result["debug_output"] = self.debug_output
+            return demo_result
         
         try:
             # Perform OCR on images first (using paths)
             ocr_text, vin_number = self._perform_ocr_on_images(image_paths)
+            self.debug_output["step1_ocr_raw"] = {
+                "ocr_text": ocr_text,
+                "vin_number": vin_number,
+                "timestamp": datetime.now().isoformat()
+            }
             
             # Encode all images
             encoded_images = []
@@ -144,8 +166,12 @@ class PartIdentifier:
             # Calculate processing time
             processing_time = (datetime.now() - start_time).total_seconds()
             self.debug_output["processing_time"] = processing_time
+            self.debug_output["workflow_steps"].append(f"Completed processing in {processing_time:.2f} seconds")
             
-            # Add debug output to result
+            # Ensure debug output is included in the result
+            if not isinstance(result, dict):
+                result = {"part_name": "Unknown Part", "description": "Analysis completed but no valid result format"}
+            
             result["debug_output"] = self.debug_output
             
             return result
