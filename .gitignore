@@ -1,0 +1,74 @@
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*
+
+# API Credentials
+vision-credentials.json
+*.json
+*credentials*
+*secret*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Uploads and processed files
+uploads/
+processed/
+static/processed/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+backup/
+
+# Test files
+test_images/
+test_*.py
+
+# Deployment scripts
+delete_branches.bat
+prepare_deployment.bat
